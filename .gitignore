@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+
+# Mission artifacts (ephemeral per run)
+.missions/
+test/
+
+# Generated app directories
+test-directory/
+test-directory2/
+test-directory3/
+test-directory4/
+testDir/
+
+# Documentation and specs directory
+MD_Files/
+
+# Local IDE/AI settings
+.claude/
+
+# Session artifacts
+*.png
+!Ratel_logo.png
+fix_plan.md
+prompt.md
+context.md
+
+# Keep the old pattern as a safety net for future test directories
+test-directory*/
+
+# implementation spec files for internal use
+implementation_spec.md

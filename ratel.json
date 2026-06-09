@@ -1,0 +1,109 @@
+{
+  "$schema": "./docs/ratel-schema.json",
+  "name": "ratel",
+  "version": "0.1.0",
+  "orchestrator": {
+    "systemPrompt": null,
+    "thinkingLevel": "medium",
+    "model": "opencode-go/deepseek-v4-pro",
+    "tools": [
+      "read",
+      "grep",
+      "find",
+      "ls"
+    ],
+    "customTools": [
+      "run_research",
+      "ask_smart_friend",
+      "draft_validation_contract",
+      "write_mission_artifact",
+      "load_mission_state",
+      "run_validation",
+      "run_worker",
+      "run_user_testing",
+      "set_model",
+      "list_models"
+    ],
+    "defaultSkills": [
+      "grill-with-docs",
+      "find-skills",
+      "ui-ux-pro-max",
+      "parallel-web-search",
+      "agent-browser",
+      "html-visual",
+      "html-as-output",
+      "skill-creator",
+      "slc-product-thinking",
+      "software-design-philosophy",
+      "architecture-blueprint-generator",
+      "brainstorming",
+      "bdd-discovery",
+      "subagent-driven-development"
+    ],
+    "phaseSkills": {
+      "intake": [
+        "grill-with-docs",
+        "ui-ux-pro-max",
+        "brainstorming",
+        "slc-product-thinking"
+      ],
+      "discovery": [
+        "parallel-web-search",
+        "agent-browser",
+        "find-skills",
+        "brainstorming",
+        "bdd-discovery"
+      ],
+      "clarification": [
+        "grill-with-docs",
+        "ui-ux-pro-max",
+        "slc-product-thinking",
+        "bdd-discovery"
+      ],
+      "constraint_analysis": [
+        "ui-ux-pro-max",
+        "find-skills",
+        "html-visual",
+        "html-as-output",
+        "slc-product-thinking",
+        "software-design-philosophy",
+        "architecture-blueprint-generator"
+      ],
+      "validation_contract": [
+        "grill-with-docs",
+        "software-design-philosophy"
+      ],
+      "feature_decomposition": [
+        "html-visual",
+        "html-as-output",
+        "skill-creator",
+        "architecture-blueprint-generator",
+        "software-design-philosophy",
+        "subagent-driven-development"
+      ],
+      "user_approval": [
+        "html-visual",
+        "html-as-output"
+      ]
+    }
+  },
+  "workers": {
+    "model": "ollama/kimi-k2.6:cloud",
+    "defaultTools": [
+      "read",
+      "bash",
+      "edit",
+      "write"
+    ]
+  },
+  "validators": {
+    "model": "ollama/minimax-m3:cloud",
+    "defaultTools": [
+      "read",
+      "bash",
+      "grep",
+      "find",
+      "ls"
+    ]
+  }
+}

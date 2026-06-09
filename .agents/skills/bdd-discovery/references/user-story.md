@@ -1,0 +1,81 @@
+---
+title: "User story"
+source: "https://cucumber.io/docs/terms/user-story/"
+author:
+published: 2026-06-03
+created: 2026-06-04
+description: "Small increments of value used in planning agile development work"
+tags:
+  - "clippings"
+---
+A *User story* is a small piece of valuable functionality used for planning and prioritising work on an agile team.
+
+A good *User story* should:
+
+- Deliver a demonstrable piece of functionality
+- Have testable acceptance criteria
+
+and be
+
+## Story format
+
+A good *User Story* should describe the **Who** (`<actor>`), **What** (`<feature>`) and **Why** (`<benefit>`).
+
+```markdown
+As an <actor>
+I want a <feature>
+So that <benefit>
+```
+
+Example:
+
+```markdown
+As an mobile bank customer
+I want to see balance on my accounts
+So that I can make better informed decisions about my spending
+```
+
+## Acceptance criteria using Cucumber language
+
+Acceptance Criteria are conditions that a (software) product must satisfy to be accepted by a user, customer or other stakeholder.
+
+These are best written using the Cucumber language and [Gherkin syntax](https://cucumber.io/docs/gherkin/).
+
+```markdown
+Feature: Some important feature
+
+  Scenario: Get something
+    Given I have something
+    When I do something
+    Then I get something else
+
+  Scenario: Get something different
+    Given I have something
+    And I have also some other thing
+    When I do something different
+    Then I get something different
+```
+
+… etc., with more scenarios as required.
+
+Example:
+
+```markdown
+Feature: Some important feature
+
+  Scenario: Do not show balance if not logged in
+    Given I am not logged on to the mobile banking app
+    When I open the mobile banking app
+    Then I can see a login page
+    And I do not see account balance
+
+  Scenario: Show balance on the accounts page after logging in
+    Given I have just logged on to the mobile banking app
+    When I load the accounts page
+    Then I can see account balance for each of my accounts
+```
+
+## Further reading
+
+- [Gherkin reference](https://cucumber.io/docs/gherkin/reference)
+- [https://ronjeffries.com/xprog/articles/expcardconversationconfirmation/](https://ronjeffries.com/xprog/articles/expcardconversationconfirmation/)

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "skills": {
+    "architecture-blueprint-generator": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/architecture-blueprint-generator/SKILL.md",
+      "computedHash": "9b20f13d1d96ba1c2550e1ce535f932e943c42939d3fae906a9e0d6c1bfb471a"
+    },
+    "bdd-discovery": {
+      "source": "AryanBhargavprojects/Ratel-skills-vault",
+      "sourceType": "github",
+      "skillPath": "bdd-discovery/SKILL.md",
+      "computedHash": "5211f69dd53f74024746cb7ff1a21942061f6a261af6fcf404d136ff02bf99b2"
+    },
+    "brainstorming": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/brainstorming/SKILL.md",
+      "computedHash": "8df9b47092524833138b58682d03f2e153a242e550d1693657afdbee0cc9cdb0"
+    },
+    "browser-use": {
+      "source": "browser-use/browser-use",
+      "sourceType": "github",
+      "skillPath": "skills/browser-use/SKILL.md",
+      "computedHash": "c2f6bb1deba21399380e80e9eab963836c50ae77ad2dea21bd5ea10e66da707e"
+    },
+    "cucumber-gherkin": {
+      "source": "el-feo/ai-context",
+      "sourceType": "github",
+      "skillPath": "plugins/ruby-rails/skills/cucumber-gherkin/SKILL.md",
+      "computedHash": "cb66eb8475078648059ebbbd797af112f9eee063938afcf6c499e6fa5f4cd0fc"
+    },
+    "dispatching-parallel-agents": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/dispatching-parallel-agents/SKILL.md",
+      "computedHash": "e21044ae7496fc285f1df9ff3fb518a3a20bea6f5216c1f59f4987e12c769a0a"
+    },
+    "executing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/executing-plans/SKILL.md",
+      "computedHash": "b41c919caf1bb07fbacb0e29899ac513f9eb11cd4dd695975ad352c2c03cc4d7"
+    },
+    "gherkin-contract": {
+      "source": "AryanBhargavprojects/Ratel-skills-vault",
+      "sourceType": "github",
+      "skillPath": "gherkin-contract/SKILL.md",
+      "computedHash": "0201beaae69c78a1c50734a13f13941206ee1463db16871514c637efd3a0cc3b"
+    },
+    "html-as-output": {
+      "source": "AryanBhargavprojects/Ratel-skills-vault",
+      "sourceType": "github",
+      "skillPath": "html-as-output/SKILL.md",
+      "computedHash": "dac98179789323a214078360b48cb308a1c17fe2327450ac13b6d85cbb4d7b98"
+    },
+    "receiving-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/receiving-code-review/SKILL.md",
+      "computedHash": "2760c85d4f4117b0006e7ba755f4bbd61f8f4c185f347999763c97f507274e30"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/requesting-code-review/SKILL.md",
+      "computedHash": "874f3786b05007a8b4a60452a4cd89b9917c645d34b6b1e40ea05037d12f0e67"
+    },
+    "slc-product-thinking": {
+      "source": "AryanBhargavprojects/Ratel-skills-vault",
+      "sourceType": "github",
+      "skillPath": "slc-product-thinking/SKILL.md",
+      "computedHash": "f9a7251d43cb10eb0adb93faf107a25525c101ded842ec129980b7ce32832e99"
+    },
+    "software-design-philosophy": {
+      "source": "wondelai/skills",
+      "sourceType": "github",
+      "skillPath": "software-design-philosophy/SKILL.md",
+      "computedHash": "60be058b83d50e13f0039960912d38c42a90fbb77665ef1bc12d81fd4f37331c"
+    },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/subagent-driven-development/SKILL.md",
+      "computedHash": "b38be2f3a092d758127f6d47e77c2493885aebf38aae359e4c786df2c343b837"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/systematic-debugging/SKILL.md",
+      "computedHash": "7246fdd3a795fc3daff0af72044ca99bf836e4e6a46844742858786fdfb86488"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "126f1ebf6ccd414f42544f6e83d8cc5adb089e1108eaffb7c400701e37eecd9f"
+    },
+    "using-git-worktrees": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/using-git-worktrees/SKILL.md",
+      "computedHash": "bd10bc57c23040630b17c877a9bc7b4be40c35161a2e2f110d770d78e3b0a4ff"
+    },
+    "using-superpowers": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/using-superpowers/SKILL.md",
+      "computedHash": "de10fd3ff46d797acc92b9df6b3ea456a5cd1d095b73c90bc921e83cce4c5bb9"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/verification-before-completion/SKILL.md",
+      "computedHash": "9b446f0c7fe1cfb560b1d34439523b1a76d5f177290007b2c053a1c749a4a8ba"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/writing-plans/SKILL.md",
+      "computedHash": "2b986445454a025ca2c3839f8a2024747e8cce0517948437232cd113d2719060"
+    }
+  }
+}

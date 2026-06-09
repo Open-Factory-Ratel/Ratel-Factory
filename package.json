@@ -1,0 +1,21 @@
+{
+  "name": "ratel",
+  "version": "0.1.0",
+  "description": "Ratel — AI Software Factory",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').cpSync('src/observability/dashboard.html','dist/observability/dashboard.html')\"",
+    "dev": "tsx src/main.ts",
+    "start": "node dist/main.js",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.79.0",
+    "@earendil-works/pi-coding-agent": "^0.79.0",
+    "@sinclair/typebox": "^0.34.49"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
