@@ -7,6 +7,8 @@ dist/
 
 # Mission artifacts (ephemeral per run)
 .missions/
+
+# Test suite (not shipped)
 test/
 
 # Generated app directories
