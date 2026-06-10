@@ -63,21 +63,22 @@ async function getModelConfig(cwd: string): Promise<ModelConfig> {
   };
 }
 
-async function setModelLevel(
+async function setModelLevels(
   cwd: string,
-  level: "orchestrator" | "worker" | "validator",
-  model: string | null,
+  updates: { orchestrator?: string | null; worker?: string | null; validator?: string | null },
 ): Promise<void> {
   const config = await readRatelConfig(cwd);
-  if (level === "orchestrator") {
+  if ("orchestrator" in updates) {
     if (!config.orchestrator) config.orchestrator = {};
-    config.orchestrator.model = model;
-  } else if (level === "worker") {
+    config.orchestrator.model = updates.orchestrator!;
+  }
+  if ("worker" in updates) {
     if (!config.workers) config.workers = {};
-    config.workers.model = model;
-  } else {
+    config.workers.model = updates.worker!;
+  }
+  if ("validator" in updates) {
     if (!config.validators) config.validators = {};
-    config.validators.model = model;
+    config.validators.model = updates.validator!;
   }
   await writeRatelConfig(cwd, config);
 }
@@ -96,7 +97,7 @@ export default function (pi: ExtensionAPI) {
   // ── Sync orchestrator model to ratel.json when user changes it via /model or Ctrl+P ──
   pi.on("model_select", async (event, ctx) => {
     const modelStr = `${event.model.provider}/${event.model.id}`;
-    await setModelLevel(ctx.cwd, "orchestrator", modelStr);
+    await setModelLevels(ctx.cwd, { orchestrator: modelStr });
 
     cachedModelConfig.orchestrator = modelStr;
     ctx.ui.setStatus("ratel-models", formatForStatusBar(cachedModelConfig));
@@ -137,8 +138,10 @@ export default function (pi: ExtensionAPI) {
         }
 
         if (choice === "\u2705 Confirm & Save") {
-          await setModelLevel(cwd, "worker", pending.worker);
-          await setModelLevel(cwd, "validator", pending.validator);
+          await setModelLevels(cwd, {
+            worker: pending.worker,
+            validator: pending.validator,
+          });
 
           cachedModelConfig.worker = pending.worker;
           cachedModelConfig.validator = pending.validator;
