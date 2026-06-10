@@ -16,7 +16,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ModelSelectorComponent } from "@earendil-works/pi-coding-agent";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -143,7 +143,7 @@ export class RatelTopWidget {
     const oModel = cleanModelName(cachedModelConfig.orchestrator);
     const wModel = cleanModelName(cachedModelConfig.worker);
     const vModel = cleanModelName(cachedModelConfig.validator);
-    const powerline = `\x1b[44;37m O: ${oModel} \x1b[45;34m\x1b[45;37m W: ${wModel} \x1b[46;35m\x1b[46;30m V: ${vModel} \x1b[0;36m\x1b[0m`;
+    const powerline = `\x1b[40;37m O: ${oModel} \x1b[100;40m\x1b[100;37m W: ${wModel} \x1b[47;100m\x1b[47;30m V: ${vModel} \x1b[0;47m\x1b[0m`;
     lines.push(truncateToWidth(powerline, width, theme.fg("dim", "...")));
 
     this.cachedWidth = width;
@@ -180,10 +180,21 @@ export class RatelBottomWidget {
     const contextWindow = contextUsage?.contextWindow ?? this.ctx.model?.contextWindow ?? 0;
     const contextWindowStr = formatTokens(contextWindow);
 
+    // Left: clickable localhost:8765 link to observatory
+    const dashboardUrl = "http://localhost:8765";
+    const dashboardLink = `\x1b]8;;${dashboardUrl}\x1b\\localhost:8765\x1b]8;;\x1b\\`;
+
+    // Right: repo info, git branch, context usage
     const repoSection = `${repoName}${sepStr} ${branch}${sepStr}󰘚 ${contextPercent}/${contextWindowStr}`;
 
+    // Pad between left and right
+    const leftWidth = visibleWidth(dashboardLink);
+    const rightWidth = visibleWidth(repoSection);
+    const pad = " ".repeat(Math.max(1, width - leftWidth - rightWidth));
+    const fullLine = dashboardLink + pad + repoSection;
+
     this.cachedWidth = width;
-    this.cachedLines = [truncateToWidth(repoSection, width, theme.fg("dim", "..."))];
+    this.cachedLines = [truncateToWidth(fullLine, width, theme.fg("dim", "..."))];
     return this.cachedLines;
   }
 
