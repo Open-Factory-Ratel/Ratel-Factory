@@ -33,4 +33,10 @@ fix_plan.md
 test-directory*/
 
 # implementation spec files for internal use
+implementation_spec.md
+context.md
+factory_analysis.md
 
+.pi/orch/
+
+build-cmd.sh

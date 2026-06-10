@@ -58,7 +58,7 @@ import {
 import { writeWorkerRawOutput } from "./worker-output.js";
 import { buildValidationRecoveryPlan } from "./validation-recovery.js";
 import { checkCompletedFeatureIntegration } from "./integration-preflight.js";
-import { resolveFeatureAssertions, formatFeatureAssertionsForPrompt } from "./feature-assertions.js";
+import { resolveFeatureAssertions, formatFeatureAssertionsForPrompt, computeFeatureComplexity } from "./feature-assertions.js";
 import { prepareSerialWorkerBranch, finalizeSerialWorkerBranch } from "./worker-workspace.js";
 import {
   evaluateCompletionGate,
@@ -1664,6 +1664,66 @@ export const ensureSkillsInstalledTool = defineTool({
   },
 });
 
+/**
+ * Compute deterministic complexity metrics for a feature before spawning a worker.
+ * The deterministic layer provides data only; the orchestrator (model) decides
+ * whether to spawn or split. No hardcoded thresholds.
+ */
+export const getFeatureComplexityTool = defineTool({
+  name: "get_feature_complexity",
+  label: "Get Feature Complexity",
+  description:
+    "Query the complexity of a feature before spawning a worker. " +
+    "Returns assertion count, feature file count, scenario count, and total Gherkin lines. " +
+    "Use this before run_worker to decide if a feature should be split into smaller pieces.",
+  parameters: Type.Object({
+    featureId: Type.String({ description: "The feature ID to query" }),
+  }),
+  execute: async (_toolCallId, params) => {
+    getGlobalLogger()?.toolCall("get_feature_complexity", { featureId: params.featureId });
+
+    const features = await readFeatures(_cwd);
+    if (!features) {
+      return {
+        content: [{ type: "text" as const, text: "No features.json found. Cannot compute complexity." }],
+        details: { error: "no_features" } as Record<string, unknown>,
+      };
+    }
+
+    const feature = features.find((f: Feature) => f.id === params.featureId);
+    if (!feature) {
+      return {
+        content: [{ type: "text" as const, text: `Feature ${params.featureId} not found in features.json.` }],
+        details: { error: "feature_not_found", featureId: params.featureId } as Record<string, unknown>,
+      };
+    }
+
+    const complexity = await computeFeatureComplexity(_cwd, feature);
+
+    getGlobalLogger()?.toolResult("get_feature_complexity", {
+      featureId: complexity.featureId,
+      assertionCount: complexity.assertionCount,
+      featureFileCount: complexity.featureFileCount,
+      scenarioCount: complexity.scenarioCount,
+      totalLinesOfGherkin: complexity.totalLinesOfGherkin,
+    });
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: [
+          `Feature ${feature.id} complexity:`,
+          `- Assertions: ${complexity.assertionCount}`,
+          `- Feature files: ${complexity.featureFileCount}`,
+          `- Scenarios: ${complexity.scenarioCount}`,
+          `- Total Gherkin lines: ${complexity.totalLinesOfGherkin}`,
+        ].join("\n"),
+      }],
+      details: { complexity } as Record<string, unknown>,
+    };
+  },
+});
+
 /** All orchestrator custom tools. */
 export const ORCHESTRATOR_TOOLS = [
   runResearchTool,
@@ -1681,4 +1741,5 @@ export const ORCHESTRATOR_TOOLS = [
   listModelsTool,
   pingAgentsTool,
   ensureSkillsInstalledTool,
+  getFeatureComplexityTool,
 ];
