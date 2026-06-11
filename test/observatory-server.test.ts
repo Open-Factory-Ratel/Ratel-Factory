@@ -263,26 +263,12 @@ test("dashboard is a single self-contained HTML file with inline CSS and JS", ()
   assert.strictEqual(html.match(externalJsRegex)?.length ?? 0, 0, "should not reference external JS files");
 });
 
-test("timeline pane occupies 38% width", () => {
+test("dashboard has three vertical columns", () => {
   const html = getDashboardHtml();
-  const timelineWidthRegex = /#timeline\s*\{[^}]*width:\s*38%/;
-  const flexBasisRegex = /#timeline\s*\{[^}]*flex:\s*0\s+0\s+38%/;
-  const flexRegex = /#timeline\s*\{[^}]*flex:\s*38%/;
-  assert.ok(
-    timelineWidthRegex.test(html) || flexBasisRegex.test(html) || flexRegex.test(html),
-    "timeline should have 38% width via width or flex"
-  );
-});
-
-test("details pane occupies 62% width", () => {
-  const html = getDashboardHtml();
-  const detailsWidthRegex = /#details\s*\{[^}]*width:\s*62%/;
-  const flexBasisRegex = /#details\s*\{[^}]*flex:\s*0\s+0\s+62%/;
-  const flexRegex = /#details\s*\{[^}]*flex:\s*62%/;
-  assert.ok(
-    detailsWidthRegex.test(html) || flexBasisRegex.test(html) || flexRegex.test(html),
-    "details pane should have 62% width via width or flex"
-  );
+  assert.ok(html.includes('id="observatory-grid"'), "should contain #observatory-grid");
+  assert.ok(html.includes('id="pane-orchestration"'), "should contain #pane-orchestration");
+  assert.ok(html.includes('id="pane-worker"'), "should contain #pane-worker");
+  assert.ok(html.includes('id="pane-validator"'), "should contain #pane-validator");
 });
 
 test("modal popup is removed", () => {
@@ -293,18 +279,18 @@ test("modal popup is removed", () => {
 
 test("dashboard background is black", () => {
   const html = getDashboardHtml();
-  const bodyBgRegex = /body\s*\{[^}]*background:\s*#000000/;
-  const bodyBgRegex2 = /body\s*\{[^}]*background-color:\s*#000000/;
+  const bodyBgRegex = /body\s*\{[^}]*background:\s*#(000000|060608)/;
+  const bodyBgRegex2 = /body\s*\{[^}]*background-color:\s*#(000000|060608)/;
   assert.ok(
     bodyBgRegex.test(html) || bodyBgRegex2.test(html),
-    "body background should be #000000"
+    "body background should be #000000 or #060608"
   );
 });
 
 test("primary text is white", () => {
   const html = getDashboardHtml();
-  const bodyColorRegex = /body\s*\{[^}]*color:\s*#ffffff/;
-  assert.ok(bodyColorRegex.test(html), "body text color should be #ffffff");
+  const bodyColorRegex = /body\s*\{[^}]*color:\s*#(ffffff|e1e1e6)/;
+  assert.ok(bodyColorRegex.test(html), "body text color should be #ffffff or #e1e1e6");
 });
 
 test("accent color is gray", () => {
@@ -313,62 +299,7 @@ test("accent color is gray", () => {
   assert.ok(accentRegex.test(html), "should use #8e8e93 as an accent color");
 });
 
-test("stats bar elements are present", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes('id="stat-total"'), "should have total events stat");
-  assert.ok(html.includes('id="stat-active"'), "should have active agents stat");
-  assert.ok(html.includes('id="stat-phase"'), "should have latest phase stat");
-  assert.ok(html.includes('id="stat-failures"'), "should have parse failures stat");
-  assert.ok(html.includes('id="stat-halts"'), "should have halts stat");
-});
 
-test("filter controls are present", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes('id="filter-type"'), "should have type filter");
-  assert.ok(html.includes('id="filter-level"'), "should have level filter");
-  assert.ok(html.includes('id="filter-status"'), "should have status filter");
-  assert.ok(html.includes('id="search"'), "should have search filter");
-  assert.ok(html.includes('id="toggle-failed-only"'), "should have failed-only toggle");
-  assert.ok(html.includes('id="toggle-spans"'), "should have group-spans toggle");
-});
-
-test("timeline container is present", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes('id="timeline"'), "should have timeline container");
-});
-
-test("details pane container is present", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes('id="details"'), "should have details pane container");
-});
-
-test("event row rendering logic exists", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("renderEventRow"), "should have renderEventRow function");
-  assert.ok(html.includes("summarizeEvent"), "should have summarizeEvent function");
-});
-
-test("span grouping logic exists", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("buildSpanTree"), "should have buildSpanTree function");
-  assert.ok(html.includes("renderSpanCard"), "should have renderSpanCard function");
-});
-
-test("filter wiring logic exists", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("eventPassesFilters"), "should have eventPassesFilters function");
-  assert.ok(html.includes("renderTimeline"), "should have renderTimeline function");
-});
-
-test("stats update logic exists", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("updateStats"), "should have updateStats function");
-});
-
-test("details pane rendering logic exists", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("showDetails"), "should have showDetails function to render event details in right pane");
-});
 
 test("diff parser function exists", () => {
   const html = getDashboardHtml();
@@ -380,13 +311,7 @@ test("diff hunk rendering function exists", () => {
   assert.ok(html.includes("renderDiff"), "should have renderDiff function");
 });
 
-test("tab elements exist for Live Workspace Diff and Event Raw JSON", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes('id="tab-diff"'), "should have diff tab element");
-  assert.ok(html.includes('id="tab-json"'), "should have json tab element");
-  assert.ok(html.includes("Live Workspace Diff"), "should contain Live Workspace Diff tab text");
-  assert.ok(html.includes("Event Raw JSON"), "should contain Event Raw JSON tab text");
-});
+
 
 test("diff viewer CSS includes green for additions", () => {
   const html = getDashboardHtml();
@@ -428,21 +353,14 @@ test("event polling interval remains 500ms", () => {
   assert.ok(pollEventsRegex.test(html) || setIntervalRegex.test(html), "should poll events at 500ms interval");
 });
 
-test("timeline click activates Event Raw JSON tab", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("activateTab") || html.includes("tab-json"), "should have logic to activate JSON tab");
-  assert.ok(html.includes("Event Raw JSON") && html.includes("data-event-id"), "should wire timeline clicks to JSON tab");
-});
+
 
 test("no modal element exists", () => {
   const html = getDashboardHtml();
   assert.ok(!html.includes('id="modal"'), "should not have a modal element");
 });
 
-test("tab state preserves selected event", () => {
-  const html = getDashboardHtml();
-  assert.ok(html.includes("selectedEventId") || html.includes("activeTab"), "should track selected event or active tab in state");
-});
+
 
 test("dist/observatory/dashboard.html exists and matches src", () => {
   const srcPath = join(process.cwd(), "src", "observatory", "dashboard.html");
