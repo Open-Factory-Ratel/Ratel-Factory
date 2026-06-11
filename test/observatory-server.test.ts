@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { request } from "node:http";
@@ -213,4 +213,144 @@ test("OPTIONS /api/diff returns CORS headers", async () => {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {}
   }
+});
+
+const DASHBOARD_PATH = join(process.cwd(), "src", "observatory", "dashboard.html");
+
+function getDashboardHtml(): string {
+  return readFileSync(DASHBOARD_PATH, "utf-8");
+}
+
+test("dashboard is a single self-contained HTML file with inline CSS and JS", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("<!DOCTYPE html>"), "should be an HTML file");
+  assert.ok(html.includes("<style>"), "should have inline CSS");
+  assert.ok(html.includes("<script>"), "should have inline JS");
+
+  // Must not reference external CSS files
+  const externalCssRegex = /<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']+["']/gi;
+  assert.strictEqual(html.match(externalCssRegex)?.length ?? 0, 0, "should not reference external CSS files");
+
+  // Must not reference external JS files
+  const externalJsRegex = /<script[^>]*src=["'][^"']+["']/gi;
+  assert.strictEqual(html.match(externalJsRegex)?.length ?? 0, 0, "should not reference external JS files");
+});
+
+test("timeline pane occupies 35% width", () => {
+  const html = getDashboardHtml();
+  const timelineWidthRegex = /#timeline\s*\{[^}]*width:\s*35%/;
+  const flexBasisRegex = /#timeline\s*\{[^}]*flex:\s*0\s+0\s+35%/;
+  const flexRegex = /#timeline\s*\{[^}]*flex:\s*35%/;
+  assert.ok(
+    timelineWidthRegex.test(html) || flexBasisRegex.test(html) || flexRegex.test(html),
+    "timeline should have 35% width via width or flex"
+  );
+});
+
+test("details pane occupies 65% width", () => {
+  const html = getDashboardHtml();
+  const detailsWidthRegex = /#details\s*\{[^}]*width:\s*65%/;
+  const flexBasisRegex = /#details\s*\{[^}]*flex:\s*0\s+0\s+65%/;
+  const flexRegex = /#details\s*\{[^}]*flex:\s*65%/;
+  assert.ok(
+    detailsWidthRegex.test(html) || flexBasisRegex.test(html) || flexRegex.test(html),
+    "details pane should have 65% width via width or flex"
+  );
+});
+
+test("modal popup is removed", () => {
+  const html = getDashboardHtml();
+  assert.ok(!html.includes('id="modal"'), "should not have a modal element");
+  assert.ok(!html.includes('class="hidden"'), "should not have hidden modal class");
+});
+
+test("dashboard background is black", () => {
+  const html = getDashboardHtml();
+  const bodyBgRegex = /body\s*\{[^}]*background:\s*#000000/;
+  const bodyBgRegex2 = /body\s*\{[^}]*background-color:\s*#000000/;
+  assert.ok(
+    bodyBgRegex.test(html) || bodyBgRegex2.test(html),
+    "body background should be #000000"
+  );
+});
+
+test("primary text is white", () => {
+  const html = getDashboardHtml();
+  const bodyColorRegex = /body\s*\{[^}]*color:\s*#ffffff/;
+  assert.ok(bodyColorRegex.test(html), "body text color should be #ffffff");
+});
+
+test("accent color is gray", () => {
+  const html = getDashboardHtml();
+  const accentRegex = /#8e8e93/;
+  assert.ok(accentRegex.test(html), "should use #8e8e93 as an accent color");
+});
+
+test("stats bar elements are present", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('id="stat-total"'), "should have total events stat");
+  assert.ok(html.includes('id="stat-active"'), "should have active agents stat");
+  assert.ok(html.includes('id="stat-phase"'), "should have latest phase stat");
+  assert.ok(html.includes('id="stat-failures"'), "should have parse failures stat");
+  assert.ok(html.includes('id="stat-halts"'), "should have halts stat");
+});
+
+test("filter controls are present", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('id="filter-type"'), "should have type filter");
+  assert.ok(html.includes('id="filter-level"'), "should have level filter");
+  assert.ok(html.includes('id="filter-status"'), "should have status filter");
+  assert.ok(html.includes('id="search"'), "should have search filter");
+  assert.ok(html.includes('id="toggle-failed-only"'), "should have failed-only toggle");
+  assert.ok(html.includes('id="toggle-spans"'), "should have group-spans toggle");
+});
+
+test("timeline container is present", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('id="timeline"'), "should have timeline container");
+});
+
+test("details pane container is present", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('id="details"'), "should have details pane container");
+});
+
+test("event row rendering logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("renderEventRow"), "should have renderEventRow function");
+  assert.ok(html.includes("summarizeEvent"), "should have summarizeEvent function");
+});
+
+test("span grouping logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("buildSpanTree"), "should have buildSpanTree function");
+  assert.ok(html.includes("renderSpanCard"), "should have renderSpanCard function");
+});
+
+test("filter wiring logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("eventPassesFilters"), "should have eventPassesFilters function");
+  assert.ok(html.includes("renderTimeline"), "should have renderTimeline function");
+});
+
+test("stats update logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("updateStats"), "should have updateStats function");
+});
+
+test("details pane rendering logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("showDetails"), "should have showDetails function to render event details in right pane");
+});
+
+test("dist/observatory/dashboard.html exists and matches src", () => {
+  const srcPath = join(process.cwd(), "src", "observatory", "dashboard.html");
+  const distPath = join(process.cwd(), "dist", "observatory", "dashboard.html");
+
+  assert.strictEqual(existsSync(distPath), true, "dist/observatory/dashboard.html should exist after build");
+
+  const srcContent = readFileSync(srcPath, "utf-8");
+  const distContent = readFileSync(distPath, "utf-8");
+
+  assert.strictEqual(distContent, srcContent, "copied file must be byte-for-byte identical to source");
 });
