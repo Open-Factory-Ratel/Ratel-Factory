@@ -71,6 +71,29 @@
       word-break: break-all;
     }
 
+    /* ── Tabs ── */
+    #tab-bar {
+      display: flex;
+      border-bottom: 1px solid #333333;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #8e8e93;
+      font-size: 13px;
+      user-select: none;
+    }
+    .tab.active {
+      color: #ffffff;
+      border-bottom-color: #0a84ff;
+    }
+    .tab:hover {
+      color: #ffffff;
+    }
+
     /* ── Stats ── */
     #stats-bar {
       display: flex;
@@ -225,6 +248,70 @@
       padding: 40px 20px;
       font-style: italic;
     }
+
+    /* ── Diff viewer ── */
+    .diff-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .diff-hunk {
+      border: 1px solid #333333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .diff-hunk-header {
+      background: #1c1c1e;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: #8e8e93;
+      border-bottom: 1px solid #333333;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .diff-line {
+      display: flex;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .diff-line-num {
+      width: 48px;
+      text-align: right;
+      padding-right: 8px;
+      color: #8e8e93;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .diff-line-ind {
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+      user-select: none;
+      color: #8e8e93;
+    }
+    .diff-line-text {
+      flex: 1;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .diff-line-ctx {
+      background: transparent;
+      color: #ffffff;
+    }
+    .diff-line-add {
+      background: rgba(63, 185, 80, 0.15);
+      color: #7ee787;
+    }
+    .diff-line-add .diff-line-ind {
+      color: #3fb950;
+    }
+    .diff-line-del {
+      background: rgba(248, 81, 73, 0.15);
+      color: #ff7b72;
+    }
+    .diff-line-del .diff-line-ind {
+      color: #f85149;
+    }
   </style>
 </head>
 <body>
@@ -304,7 +391,13 @@
     <div id="main">
       <div id="timeline"></div>
       <div id="details">
-        <div id="details-placeholder">Select an event to view details</div>
+        <div id="tab-bar">
+          <div class="tab active" id="tab-diff" data-tab="diff">Live Workspace Diff</div>
+          <div class="tab" id="tab-json" data-tab="json">Event Raw JSON</div>
+        </div>
+        <div id="details-content">
+          <div id="details-placeholder">Select an event to view details</div>
+        </div>
       </div>
     </div>
   </div>
@@ -316,8 +409,10 @@
     const state = {
       events: [],
       lastEventCount: 0,
+      diff: { diff: '', status: '' },
       filter: { type: '', level: '', status: '', search: '', failedOnly: false, groupSpans: true },
       selectedEventId: null,
+      activeTab: 'diff',
     };
 
     // ── DOM refs ──
@@ -334,6 +429,9 @@
     const $statFailures = document.getElementById('stat-failures');
     const $statHalts = document.getElementById('stat-halts');
     const $details = document.getElementById('details');
+    const $detailsContent = document.getElementById('details-content');
+    const $tabDiff = document.getElementById('tab-diff');
+    const $tabJson = document.getElementById('tab-json');
 
     // ── Helpers ──
     function fmtTime(iso) {
@@ -384,6 +482,90 @@
       }
       if (!eventMatchesSearch(e, f.search)) return false;
       return true;
+    }
+
+    // ── Diff parser ──
+    function parseUnifiedDiff(diffText) {
+      const lines = diffText.split('\n');
+      const files = [];
+      let currentFile = null;
+      let currentHunk = null;
+
+      for (const line of lines) {
+        if (line.startsWith('diff --git')) {
+          currentFile = { hunks: [] };
+          files.push(currentFile);
+          currentHunk = null;
+        } else if (line.startsWith('@@')) {
+          const match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+          if (match) {
+            currentHunk = {
+              oldStart: parseInt(match[1], 10),
+              oldCount: parseInt(match[2] || '1', 10),
+              newStart: parseInt(match[3], 10),
+              newCount: parseInt(match[4] || '1', 10),
+              lines: []
+            };
+            if (currentFile) currentFile.hunks.push(currentHunk);
+          }
+        } else if (currentHunk && (line.startsWith(' ') || line.startsWith('+') || line.startsWith('-'))) {
+          const type = line[0] === '+' ? 'add' : line[0] === '-' ? 'del' : 'ctx';
+          currentHunk.lines.push({ type, text: line.slice(1) });
+        }
+      }
+      return files;
+    }
+
+    function renderDiff(diffText) {
+      if (!diffText || !diffText.trim()) {
+        return '<div class="empty">No uncommitted changes in the workspace.</div>';
+      }
+      const files = parseUnifiedDiff(diffText);
+      if (files.length === 0 || files.every(f => f.hunks.length === 0)) {
+        return '<div class="empty">No uncommitted changes in the workspace.</div>';
+      }
+      let html = '<div class="diff-container">';
+      for (const file of files) {
+        for (const hunk of file.hunks) {
+          html += '<div class="diff-hunk">';
+          html += `<div class="diff-hunk-header">@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@</div>`;
+          let oldNum = hunk.oldStart;
+          let newNum = hunk.newStart;
+          for (const line of hunk.lines) {
+            let oldNumStr = '';
+            let newNumStr = '';
+            let typeClass = '';
+            let indicator = '';
+            if (line.type === 'ctx') {
+              oldNumStr = oldNum;
+              newNumStr = newNum;
+              oldNum++;
+              newNum++;
+              typeClass = 'diff-line-ctx';
+              indicator = ' ';
+            } else if (line.type === 'del') {
+              oldNumStr = oldNum;
+              oldNum++;
+              typeClass = 'diff-line-del';
+              indicator = '-';
+            } else if (line.type === 'add') {
+              newNumStr = newNum;
+              newNum++;
+              typeClass = 'diff-line-add';
+              indicator = '+';
+            }
+            html += `<div class="diff-line ${typeClass}">
+              <span class="diff-line-num diff-old-num">${oldNumStr}</span>
+              <span class="diff-line-num diff-new-num">${newNumStr}</span>
+              <span class="diff-line-ind">${indicator}</span>
+              <span class="diff-line-text">${escapeHtml(line.text)}</span>
+            </div>`;
+          }
+          html += '</div>';
+        }
+      }
+      html += '</div>';
+      return html;
     }
 
     // ── Stats ──
@@ -514,23 +696,50 @@
       </div>`;
     }
 
+    // ── Tab switching ──
+    function activateTab(tab) {
+      state.activeTab = tab;
+      if ($tabDiff) $tabDiff.classList.toggle('active', tab === 'diff');
+      if ($tabJson) $tabJson.classList.toggle('active', tab === 'json');
+      renderDetails();
+    }
+
     // ── Details pane ──
+    function renderDetails() {
+      if (state.activeTab === 'diff') {
+        $detailsContent.innerHTML = `<div id="diff-viewer">${renderDiff(state.diff.diff)}</div>`;
+      } else {
+        if (!state.selectedEventId) {
+          $detailsContent.innerHTML = '<div id="details-placeholder">Select an event to view raw JSON</div>';
+          return;
+        }
+        const e = state.events.find(ev => ev.span_id === state.selectedEventId);
+        if (!e) {
+          $detailsContent.innerHTML = '<div id="details-placeholder">Event not found</div>';
+          return;
+        }
+        const title = `${e.event_type}${e.agent_level ? ' ('+e.agent_level+')' : ''} — ${e.timestamp}`;
+        $detailsContent.innerHTML = `
+          <div id="details-header">
+            <h3>${escapeHtml(title)}</h3>
+          </div>
+          <pre id="details-body">${escapeHtml(JSON.stringify(e, null, 2))}</pre>
+        `;
+      }
+    }
+
     function showDetails(e) {
       state.selectedEventId = e.span_id;
+      state.activeTab = 'json';
       renderTimeline();
-      const title = `${e.event_type}${e.agent_level ? ' ('+e.agent_level+')' : ''} — ${e.timestamp}`;
-      $details.innerHTML = `
-        <div id="details-header">
-          <h3>${escapeHtml(title)}</h3>
-        </div>
-        <pre id="details-body">${escapeHtml(JSON.stringify(e, null, 2))}</pre>
-      `;
+      activateTab('json');
     }
 
     function clearDetails() {
       state.selectedEventId = null;
+      state.activeTab = 'diff';
       renderTimeline();
-      $details.innerHTML = '<div id="details-placeholder">Select an event to view details</div>';
+      activateTab('diff');
     }
 
     // Event delegation for clicks on timeline.
@@ -551,6 +760,14 @@
           body.classList.toggle('collapsed');
           if (caret) caret.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
         }
+      }
+    });
+
+    // Tab click delegation
+    $details.addEventListener('click', (ev) => {
+      const tab = ev.target.closest('[data-tab]');
+      if (tab) {
+        activateTab(tab.dataset.tab);
       }
     });
 
@@ -582,12 +799,32 @@
         state.lastEventCount = events.length;
         updateStats();
         renderTimeline();
+        if (state.activeTab === 'json' && state.selectedEventId) {
+          renderDetails();
+        }
       } catch (err) {
         console.error('Polling failed:', err);
       }
     }
+
+    async function pollDiff() {
+      try {
+        const res = await fetch('/api/diff');
+        if (!res.ok) return;
+        const data = await res.json();
+        state.diff = data;
+        if (state.activeTab === 'diff') {
+          renderDetails();
+        }
+      } catch (err) {
+        console.error('Diff polling failed:', err);
+      }
+    }
+
     pollEvents();
     setInterval(pollEvents, 500);
+    pollDiff();
+    setInterval(pollDiff, 1000);
   </script>
 </body>
 </html>

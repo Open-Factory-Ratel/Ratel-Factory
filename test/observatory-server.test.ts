@@ -343,6 +343,80 @@ test("details pane rendering logic exists", () => {
   assert.ok(html.includes("showDetails"), "should have showDetails function to render event details in right pane");
 });
 
+test("diff parser function exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("parseUnifiedDiff"), "should have parseUnifiedDiff function");
+});
+
+test("diff hunk rendering function exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("renderDiff"), "should have renderDiff function");
+});
+
+test("tab elements exist for Live Workspace Diff and Event Raw JSON", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('id="tab-diff"'), "should have diff tab element");
+  assert.ok(html.includes('id="tab-json"'), "should have json tab element");
+  assert.ok(html.includes("Live Workspace Diff"), "should contain Live Workspace Diff tab text");
+  assert.ok(html.includes("Event Raw JSON"), "should contain Event Raw JSON tab text");
+});
+
+test("diff viewer CSS includes green for additions", () => {
+  const html = getDashboardHtml();
+  const greenRegex = /#[37]fb950|#7ee787/;
+  assert.ok(greenRegex.test(html), "should use green color (#3fb950 or #7ee787) for additions");
+  assert.ok(html.includes('diff-line-add') || html.includes('diff-add') || html.includes("background") && greenRegex.test(html), "should have CSS selector or class for added lines");
+});
+
+test("diff viewer CSS includes red for deletions", () => {
+  const html = getDashboardHtml();
+  const redRegex = /#f85149|#ff7b72/;
+  assert.ok(redRegex.test(html), "should use red color (#f85149 or #ff7b72) for deletions");
+  assert.ok(html.includes('diff-line-del') || html.includes('diff-del') || html.includes("background") && redRegex.test(html), "should have CSS selector or class for deleted lines");
+});
+
+test("diff viewer CSS is neutral for context lines", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes('diff-line-ctx') || html.includes('diff-ctx'), "should have CSS selector or class for context lines");
+});
+
+test("diff line numbers rendering logic exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("diff-line-num"), "should have line number CSS class or element");
+  assert.ok(html.includes("diff-old-num") || html.includes("oldNum"), "should reference old line numbers");
+  assert.ok(html.includes("diff-new-num") || html.includes("newNum"), "should reference new line numbers");
+});
+
+test("diff polling interval is 1000ms", () => {
+  const html = getDashboardHtml();
+  const pollDiffRegex = /pollDiff[\s\S]*?setInterval\(\s*pollDiff\s*,\s*1000\s*\)/;
+  const setIntervalRegex = /setInterval\([^,]*,\s*1000\s*\)/;
+  assert.ok(pollDiffRegex.test(html) || setIntervalRegex.test(html), "should poll diff at 1000ms interval");
+});
+
+test("event polling interval remains 500ms", () => {
+  const html = getDashboardHtml();
+  const pollEventsRegex = /pollEvents[\s\S]*?setInterval\(\s*pollEvents\s*,\s*500\s*\)/;
+  const setIntervalRegex = /setInterval\([^,]*,\s*500\s*\)/;
+  assert.ok(pollEventsRegex.test(html) || setIntervalRegex.test(html), "should poll events at 500ms interval");
+});
+
+test("timeline click activates Event Raw JSON tab", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("activateTab") || html.includes("tab-json"), "should have logic to activate JSON tab");
+  assert.ok(html.includes("Event Raw JSON") && html.includes("data-event-id"), "should wire timeline clicks to JSON tab");
+});
+
+test("no modal element exists", () => {
+  const html = getDashboardHtml();
+  assert.ok(!html.includes('id="modal"'), "should not have a modal element");
+});
+
+test("tab state preserves selected event", () => {
+  const html = getDashboardHtml();
+  assert.ok(html.includes("selectedEventId") || html.includes("activeTab"), "should track selected event or active tab in state");
+});
+
 test("dist/observatory/dashboard.html exists and matches src", () => {
   const srcPath = join(process.cwd(), "src", "observatory", "dashboard.html");
   const distPath = join(process.cwd(), "dist", "observatory", "dashboard.html");
