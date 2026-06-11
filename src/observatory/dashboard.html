@@ -9,8 +9,8 @@
     html, body { height: 100%; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
-      background: #0d1117;
-      color: #c9d1d9;
+      background: #000000;
+      color: #ffffff;
       font-size: 13px;
       line-height: 1.5;
       overflow: hidden;
@@ -22,53 +22,104 @@
       flex-direction: column;
       height: 100%;
     }
+    #top-bar {
+      flex-shrink: 0;
+    }
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    #timeline {
+      width: 35%;
+      overflow-y: auto;
+      padding: 12px 16px;
+      border-right: 1px solid #333333;
+    }
+    #details {
+      width: 65%;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    #details-placeholder {
+      color: #8e8e93;
+      font-style: italic;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    #details-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #333333;
+      margin-bottom: 12px;
+    }
+    #details-header h3 {
+      font-size: 14px;
+      color: #ffffff;
+    }
+    #details-body {
+      flex: 1;
+      overflow: auto;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      color: #ffffff;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Stats ── */
     #stats-bar {
       display: flex;
       gap: 24px;
       padding: 10px 16px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      background: #111111;
+      border-bottom: 1px solid #333333;
       flex-shrink: 0;
     }
     .stat { display: flex; flex-direction: column; gap: 2px; }
-    .stat-label { font-size: 10px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; }
-    .stat-value { font-size: 16px; font-weight: 600; color: #f0f6fc; }
-    .stat-value.failed { color: #f85149; }
+    .stat-label { font-size: 10px; text-transform: uppercase; color: #8e8e93; letter-spacing: 0.5px; }
+    .stat-value { font-size: 16px; font-weight: 600; color: #ffffff; }
+    .stat-value.failed { color: #ff453a; }
 
+    /* ── Filters ── */
     #filters {
       display: flex;
       gap: 12px;
       padding: 8px 16px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      background: #111111;
+      border-bottom: 1px solid #333333;
       flex-shrink: 0;
       align-items: center;
     }
     #filters input[type="text"] {
       flex: 1;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
+      background: #000000;
+      border: 1px solid #333333;
+      color: #ffffff;
       padding: 4px 8px;
       border-radius: 4px;
       font-family: inherit;
       font-size: 12px;
     }
     #filters select {
-      background: #0d1117;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
+      background: #000000;
+      border: 1px solid #333333;
+      color: #ffffff;
       padding: 4px 8px;
       border-radius: 4px;
       font-family: inherit;
       font-size: 12px;
       cursor: pointer;
     }
-    #filters label { color: #8b949e; font-size: 11px; }
+    #filters label { color: #8e8e93; font-size: 11px; }
     #filters .filter-toggle {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
+      background: #1c1c1e;
+      border: 1px solid #333333;
+      color: #ffffff;
       padding: 4px 10px;
       border-radius: 4px;
       cursor: pointer;
@@ -76,65 +127,61 @@
       user-select: none;
     }
     #filters .filter-toggle.active {
-      background: #1f6feb;
-      border-color: #1f6feb;
-      color: white;
+      background: #8e8e93;
+      border-color: #8e8e93;
+      color: #000000;
     }
 
-    /* ── Timeline ── */
-    #timeline {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-    }
+    /* ── Timeline events ── */
     .event {
       display: flex;
       gap: 8px;
       padding: 6px 10px;
       margin-bottom: 4px;
       border-radius: 4px;
-      background: #161b22;
-      border: 1px solid #21262d;
-      border-left: 3px solid #30363d;
+      background: #111111;
+      border: 1px solid #222222;
+      border-left: 3px solid #333333;
       cursor: pointer;
       font-size: 12px;
       transition: background 0.1s;
     }
-    .event:hover { background: #1c2128; }
-    .event .ts { color: #6e7681; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .event:hover { background: #1c1c1e; }
+    .event.selected { background: #2c2c2e; border-color: #8e8e93; }
+    .event .ts { color: #8e8e93; flex-shrink: 0; font-variant-numeric: tabular-nums; }
     .event .type { font-weight: 600; flex-shrink: 0; min-width: 110px; }
-    .event .level { color: #8b949e; flex-shrink: 0; min-width: 100px; }
-    .event .summary { color: #c9d1d9; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event .level { color: #8e8e93; flex-shrink: 0; min-width: 100px; }
+    .event .summary { color: #ffffff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .event .status { font-size: 10px; padding: 1px 6px; border-radius: 3px; flex-shrink: 0; }
 
     /* ── Color rules ── */
-    .event.failed, .event.parseStatus-failed { border-left-color: #f85149 !important; background: #2d1213; }
-    .event.event-halt { background: #2d1213; border-left-color: #f85149 !important; }
-    .event.event-phase_transition { border-left-color: #58a6ff; }
-    .event.event-agent_start { border-left-color: #d2a8ff; }
-    .event.event-agent_end { border-left-color: #d2a8ff; }
-    .event.level-worker { background: rgba(63, 185, 80, 0.05); }
-    .event.level-scrutiny_validator { background: rgba(255, 138, 0, 0.07); }
-    .event.level-user_testing_validator { background: rgba(191, 87, 230, 0.07); }
-    .event.event-tool_call { background: #1c2128; }
-    .event.event-tool_result { background: #1c2128; }
-    .event.event-session_tool_start { background: rgba(88, 166, 255, 0.06); }
-    .event.event-session_tool_end { background: rgba(88, 166, 255, 0.06); }
-    .event.event-validation_recovery { background: rgba(255, 138, 0, 0.10); border-left-color: #ff8a00; }
-    .event.event-integration_preflight { background: rgba(255, 138, 0, 0.10); border-left-color: #ff8a00; }
-    .event.event-tool_result.parseStatus-ok { border-left-color: #3fb950; }
-    .event.event-ping { background: #1c2128; border-left-color: #e3b341; }
-    .event.event-ping.failed { border-left-color: #f85149 !important; background: #2d1213; }
+    .event.failed, .event.parseStatus-failed { border-left-color: #ff453a !important; background: #2a1010; }
+    .event.event-halt { background: #2a1010; border-left-color: #ff453a !important; }
+    .event.event-phase_transition { border-left-color: #0a84ff; }
+    .event.event-agent_start { border-left-color: #bf5af2; }
+    .event.event-agent_end { border-left-color: #bf5af2; }
+    .event.level-worker { background: rgba(48, 209, 88, 0.05); }
+    .event.level-scrutiny_validator { background: rgba(255, 159, 10, 0.07); }
+    .event.level-user_testing_validator { background: rgba(191, 90, 242, 0.07); }
+    .event.event-tool_call { background: #1c1c1e; }
+    .event.event-tool_result { background: #1c1c1e; }
+    .event.event-session_tool_start { background: rgba(10, 132, 255, 0.06); }
+    .event.event-session_tool_end { background: rgba(10, 132, 255, 0.06); }
+    .event.event-validation_recovery { background: rgba(255, 159, 10, 0.10); border-left-color: #ff9f0a; }
+    .event.event-integration_preflight { background: rgba(255, 159, 10, 0.10); border-left-color: #ff9f0a; }
+    .event.event-tool_result.parseStatus-ok { border-left-color: #30d158; }
+    .event.event-ping { background: #1c1c1e; border-left-color: #ffd60a; }
+    .event.event-ping.failed { border-left-color: #ff453a !important; background: #2a1010; }
 
-    .status-ok { background: #1a3d23; color: #3fb950; }
-    .status-failed { background: #3d1a1a; color: #f85149; }
-    .status-info { background: #1a2d3d; color: #58a6ff; }
+    .status-ok { background: #0f2e1b; color: #30d158; }
+    .status-failed { background: #3d1a1a; color: #ff453a; }
+    .status-info { background: #0a1f33; color: #0a84ff; }
 
     /* ── Agent span cards ── */
     .span-card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-left: 3px solid #d2a8ff;
+      background: #111111;
+      border: 1px solid #333333;
+      border-left: 3px solid #bf5af2;
       border-radius: 6px;
       margin-bottom: 8px;
       overflow: hidden;
@@ -147,13 +194,13 @@
       cursor: pointer;
       user-select: none;
     }
-    .span-header:hover { background: #1c2128; }
-    .span-toggle { color: #8b949e; font-size: 11px; width: 12px; flex-shrink: 0; }
-    .span-title { font-weight: 600; color: #d2a8ff; }
-    .span-meta { color: #8b949e; font-size: 11px; margin-left: auto; }
+    .span-header:hover { background: #1c1c1e; }
+    .span-toggle { color: #8e8e93; font-size: 11px; width: 12px; flex-shrink: 0; }
+    .span-title { font-weight: 600; color: #bf5af2; }
+    .span-meta { color: #8e8e93; font-size: 11px; margin-left: auto; }
     .span-body {
       padding: 4px 12px 12px 32px;
-      border-top: 1px solid #21262d;
+      border-top: 1px solid #222222;
     }
     .span-body.collapsed { display: none; }
 
@@ -165,65 +212,16 @@
       border-radius: 4px;
       font-size: 11px;
       cursor: pointer;
-      border-left: 2px solid #30363d;
+      border-left: 2px solid #333333;
     }
-    .nested-event:hover { background: #1c2128; }
-    .nested-event.failed { border-left-color: #f85149; background: #2d1213; }
-    .nested-event .ts { color: #6e7681; font-variant-numeric: tabular-nums; }
-    .nested-event .summary { color: #c9d1d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* ── Modal ── */
-    #modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-    #modal.hidden { display: none; }
-    #modal .panel {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      width: 80%;
-      max-width: 900px;
-      max-height: 80%;
-      display: flex;
-      flex-direction: column;
-    }
-    #modal .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid #30363d;
-    }
-    #modal .panel-header h3 { color: #f0f6fc; font-size: 14px; }
-    #modal .panel-header button {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    #modal pre {
-      padding: 16px;
-      overflow: auto;
-      flex: 1;
-      font-size: 12px;
-      color: #c9d1d9;
-      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
+    .nested-event:hover { background: #1c1c1e; }
+    .nested-event.failed { border-left-color: #ff453a; background: #2a1010; }
+    .nested-event .ts { color: #8e8e93; font-variant-numeric: tabular-nums; }
+    .nested-event .summary { color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .empty {
       text-align: center;
-      color: #6e7681;
+      color: #8e8e93;
       padding: 40px 20px;
       font-style: italic;
     }
@@ -231,86 +229,83 @@
 </head>
 <body>
   <div id="app">
-    <div id="stats-bar">
-      <div class="stat">
-        <div class="stat-label">Total Events</div>
-        <div class="stat-value" id="stat-total">0</div>
+    <div id="top-bar">
+      <div id="stats-bar">
+        <div class="stat">
+          <div class="stat-label">Total Events</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Active Agents</div>
+          <div class="stat-value" id="stat-active">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Latest Phase</div>
+          <div class="stat-value" id="stat-phase">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Parse Failures</div>
+          <div class="stat-value failed" id="stat-failures">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Halts</div>
+          <div class="stat-value failed" id="stat-halts">0</div>
+        </div>
       </div>
-      <div class="stat">
-        <div class="stat-label">Active Agents</div>
-        <div class="stat-value" id="stat-active">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Latest Phase</div>
-        <div class="stat-value" id="stat-phase">—</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Parse Failures</div>
-        <div class="stat-value failed" id="stat-failures">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Halts</div>
-        <div class="stat-value failed" id="stat-halts">0</div>
+
+      <div id="filters">
+        <input type="text" id="search" placeholder="Search events..." />
+        <label>Type:
+          <select id="filter-type">
+            <option value="">all</option>
+            <option value="agent_start">agent_start</option>
+            <option value="agent_end">agent_end</option>
+            <option value="tool_call">tool_call</option>
+            <option value="tool_result">tool_result</option>
+            <option value="phase_transition">phase_transition</option>
+            <option value="artifact_write">artifact_write</option>
+            <option value="state_loaded">state_loaded</option>
+            <option value="decision_logged">decision_logged</option>
+            <option value="halt">halt</option>
+            <option value="mission_initialized">mission_initialized</option>
+            <option value="ping">ping</option>
+            <option value="session_tool_start">session_tool_start</option>
+            <option value="session_tool_end">session_tool_end</option>
+            <option value="session_agent_event">session_agent_event</option>
+            <option value="validation_recovery">validation_recovery</option>
+            <option value="integration_preflight">integration_preflight</option>
+          </select>
+        </label>
+        <label>Level:
+          <select id="filter-level">
+            <option value="">all</option>
+            <option value="orchestrator">orchestrator</option>
+            <option value="worker">worker</option>
+            <option value="scrutiny_validator">scrutiny_validator</option>
+            <option value="user_testing_validator">user_testing_validator</option>
+            <option value="research">research</option>
+            <option value="smart_friend">smart_friend</option>
+            <option value="contract_writer">contract_writer</option>
+            <option value="code_review">code_review</option>
+          </select>
+        </label>
+        <label>Status:
+          <select id="filter-status">
+            <option value="">all</option>
+            <option value="ok">ok</option>
+            <option value="failed">failed</option>
+          </select>
+        </label>
+        <span class="filter-toggle" id="toggle-failed-only">Failed only</span>
+        <span class="filter-toggle" id="toggle-spans">Group spans</span>
       </div>
     </div>
 
-    <div id="filters">
-      <input type="text" id="search" placeholder="Search events..." />
-      <label>Type:
-        <select id="filter-type">
-          <option value="">all</option>
-          <option value="agent_start">agent_start</option>
-          <option value="agent_end">agent_end</option>
-          <option value="tool_call">tool_call</option>
-          <option value="tool_result">tool_result</option>
-          <option value="phase_transition">phase_transition</option>
-          <option value="artifact_write">artifact_write</option>
-          <option value="state_loaded">state_loaded</option>
-          <option value="decision_logged">decision_logged</option>
-          <option value="halt">halt</option>
-          <option value="mission_initialized">mission_initialized</option>
-          <option value="ping">ping</option>
-          <option value="session_tool_start">session_tool_start</option>
-          <option value="session_tool_end">session_tool_end</option>
-          <option value="session_agent_event">session_agent_event</option>
-          <option value="validation_recovery">validation_recovery</option>
-          <option value="integration_preflight">integration_preflight</option>
-        </select>
-      </label>
-      <label>Level:
-        <select id="filter-level">
-          <option value="">all</option>
-          <option value="orchestrator">orchestrator</option>
-          <option value="worker">worker</option>
-          <option value="scrutiny_validator">scrutiny_validator</option>
-          <option value="user_testing_validator">user_testing_validator</option>
-          <option value="research">research</option>
-          <option value="smart_friend">smart_friend</option>
-          <option value="contract_writer">contract_writer</option>
-          <option value="code_review">code_review</option>
-        </select>
-      </label>
-      <label>Status:
-        <select id="filter-status">
-          <option value="">all</option>
-          <option value="ok">ok</option>
-          <option value="failed">failed</option>
-        </select>
-      </label>
-      <span class="filter-toggle" id="toggle-failed-only">Failed only</span>
-      <span class="filter-toggle" id="toggle-spans">Group spans</span>
-    </div>
-
-    <div id="timeline"></div>
-  </div>
-
-  <div id="modal" class="hidden">
-    <div class="panel">
-      <div class="panel-header">
-        <h3 id="modal-title">Event</h3>
-        <button id="modal-close">Close (Esc)</button>
+    <div id="main">
+      <div id="timeline"></div>
+      <div id="details">
+        <div id="details-placeholder">Select an event to view details</div>
       </div>
-      <pre id="modal-body"></pre>
     </div>
   </div>
 
@@ -322,6 +317,7 @@
       events: [],
       lastEventCount: 0,
       filter: { type: '', level: '', status: '', search: '', failedOnly: false, groupSpans: true },
+      selectedEventId: null,
     };
 
     // ── DOM refs ──
@@ -337,10 +333,7 @@
     const $statPhase = document.getElementById('stat-phase');
     const $statFailures = document.getElementById('stat-failures');
     const $statHalts = document.getElementById('stat-halts');
-    const $modal = document.getElementById('modal');
-    const $modalTitle = document.getElementById('modal-title');
-    const $modalBody = document.getElementById('modal-body');
-    const $modalClose = document.getElementById('modal-close');
+    const $details = document.getElementById('details');
 
     // ── Helpers ──
     function fmtTime(iso) {
@@ -476,6 +469,7 @@
       if (e.agent_level) classes.push(`level-${e.agent_level}`);
       if (status === 'failed') classes.push('parseStatus-failed', 'failed');
       else if (status === 'ok') classes.push('parseStatus-ok');
+      if (state.selectedEventId === e.span_id) classes.push('selected');
       const statusHtml = status ? `<span class="status status-${status}">${status}</span>` : '';
       return `<div class="${classes.join(' ')}" data-event-id="${e.span_id}">
         <span class="ts">${fmtTime(e.timestamp)}</span>
@@ -520,24 +514,32 @@
       </div>`;
     }
 
-    // ── Modal ──
-    function openModal(e) {
-      $modalTitle.textContent = `${e.event_type}${e.agent_level ? ' ('+e.agent_level+')' : ''} — ${e.timestamp}`;
-      $modalBody.textContent = JSON.stringify(e, null, 2);
-      $modal.classList.remove('hidden');
+    // ── Details pane ──
+    function showDetails(e) {
+      state.selectedEventId = e.span_id;
+      renderTimeline();
+      const title = `${e.event_type}${e.agent_level ? ' ('+e.agent_level+')' : ''} — ${e.timestamp}`;
+      $details.innerHTML = `
+        <div id="details-header">
+          <h3>${escapeHtml(title)}</h3>
+        </div>
+        <pre id="details-body">${escapeHtml(JSON.stringify(e, null, 2))}</pre>
+      `;
     }
-    function closeModal() { $modal.classList.add('hidden'); }
-    $modalClose.addEventListener('click', closeModal);
-    $modal.addEventListener('click', (ev) => { if (ev.target === $modal) closeModal(); });
-    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeModal(); });
 
-    // Event delegation for clicks on event rows.
+    function clearDetails() {
+      state.selectedEventId = null;
+      renderTimeline();
+      $details.innerHTML = '<div id="details-placeholder">Select an event to view details</div>';
+    }
+
+    // Event delegation for clicks on timeline.
     $timeline.addEventListener('click', (ev) => {
       const row = ev.target.closest('[data-event-id]');
       if (row) {
         const id = row.dataset.eventId;
         const e = state.events.find(ev => ev.span_id === id);
-        if (e) openModal(e);
+        if (e) showDetails(e);
         return;
       }
       const toggle = ev.target.closest('[data-span-toggle]');
