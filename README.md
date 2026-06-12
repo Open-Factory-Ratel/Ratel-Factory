@@ -231,9 +231,13 @@ The factory has 77 tests covering:
 
 ### Observatory Dashboard
 
-When the factory starts, it launches a read-only observatory dashboard:
+When the factory starts, it launches an observatory dashboard:
 - URL: `http://localhost:8765` (auto-falls back if port busy)
-- Shows: agent spans, tool calls, parse status, phase transitions, halt events
+- **Live Monitoring**: Shows agent spans, tool calls, parse status, phase transitions, diff files, and validator logs.
+- **Widescreen Plan Review Console**: During the `user_approval` phase, the dashboard transitions into a full-page split-pane review interface:
+  - **Left Pane (Tabbed Editor)**: Toggle between a rich **Preview** of the Gherkin validation contract (automatically formatted headers, checkboxes, lists, and code blocks) and a raw **Edit Markdown** text editor. Active typing protection prevents server polling from resetting your edits.
+  - **Right Pane (Sidebar Context)**: Shows the current mission goal, active features checklist, feedback comments box, and action buttons (**Approve & Run Mission** or **Request Edits / Send Back**).
+  - Approving or requesting edits writes the files back to the workspace and automatically resolves the blocked orchestrator CLI gate.
 - Data source: `.missions/current/events.jsonl`
 
 ---
