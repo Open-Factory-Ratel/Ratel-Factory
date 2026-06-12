@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 import { request } from "node:http";
 
 import { startDashboardServerOnAvailablePort } from "../src/observatory/server.ts";
+import { showUiOptionsTool } from "../src/core/tools.ts";
 
 function httpGet(url: string): Promise<{ status: number; headers: Record<string, string | string[]>; body: string }> {
   return new Promise((resolve, reject) => {
@@ -372,4 +373,77 @@ test("dist/observatory/dashboard.html exists and matches src", () => {
   const distContent = readFileSync(distPath, "utf-8");
 
   assert.strictEqual(distContent, srcContent, "copied file must be byte-for-byte identical to source");
+});
+
+test("show_ui_options tool launches local server, accepts selection, and shuts down", async () => {
+  const originalLog = console.log;
+  let serverUrl = "";
+  
+  // Intercept console.log to get the local server URL
+  console.log = (msg: any, ...args: any[]) => {
+    if (typeof msg === "string") {
+      const match = msg.match(/http:\/\/localhost:\d+/);
+      if (match) {
+        serverUrl = match[0];
+      }
+    }
+    originalLog(msg, ...args);
+  };
+
+  try {
+    // Run show_ui_options tool execute in background
+    const toolPromise = showUiOptionsTool.execute("test-call", {
+      prompt: "Which UI concept do you prefer?",
+      options: [
+        { id: "concept-a", title: "Concept A", description: "First layout description" },
+        { id: "concept-b", title: "Concept B", description: "Second layout description" },
+      ],
+    });
+
+    // Wait until the server URL is printed
+    for (let i = 0; i < 20; i++) {
+      if (serverUrl) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    assert.ok(serverUrl, "Server URL should be resolved");
+
+    // Make a POST select request to the local server
+    const postBody = "choice=concept-b";
+    
+    const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const req = request(
+        `${serverUrl}/select`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(postBody),
+          },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk) => { body += chunk; });
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode ?? 0,
+              body,
+            });
+          });
+        }
+      );
+      req.on("error", reject);
+      req.write(postBody);
+      req.end();
+    });
+
+    assert.strictEqual(response.status, 200);
+    assert.ok(response.body.includes("Selection Received"), "Response should confirm selection");
+
+    // Wait for the tool promise to resolve
+    const result = await toolPromise;
+    assert.strictEqual(result.details.selectedOptionId, "concept-b");
+  } finally {
+    console.log = originalLog;
+  }
 });

@@ -140,6 +140,7 @@ export class OrchestratorAgent {
       "list_models",
       "ping_agents",
       "ensure_skills_installed",
+      "show_ui_options",
     ];
 
     // Resolve orchestrator model from config, CLI option, or SDK default

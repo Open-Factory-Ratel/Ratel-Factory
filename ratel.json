@@ -22,7 +22,8 @@
       "run_worker",
       "run_user_testing",
       "set_model",
-      "list_models"
+      "list_models",
+      "show_ui_options"
     ],
     "defaultSkills": [
       "grill-with-docs",

@@ -1749,6 +1749,330 @@ export const getFeatureComplexityTool = defineTool({
   },
 });
 
+/**
+ * Present multiple UI options or design mockups to the user via a local web page
+ * and block execution until the user submits their choice.
+ */
+export const showUiOptionsTool = defineTool({
+  name: "show_ui_options",
+  label: "Show UI Options",
+  description:
+    "Presents multiple UI mockups or design options to the user via a local web browser page, " +
+    "and blocks execution until the user selects their preferred option. " +
+    "Returns the selected option's ID.",
+  parameters: Type.Object({
+    prompt: Type.String({ description: "Question or instructions to display above the options" }),
+    options: Type.Array(
+      Type.Object({
+        id: Type.String({ description: "Unique identifier for the choice" }),
+        title: Type.String({ description: "Short, user-friendly title of the option" }),
+        description: Type.String({ description: "Detailed description of the option" }),
+        html_preview: Type.Optional(Type.String({ description: "Optional raw HTML preview or mockup content" })),
+      }),
+      { description: "List of options to present" }
+    ),
+  }),
+  execute: async (_toolCallId, params) => {
+    getGlobalLogger()?.toolCall("show_ui_options", { prompt: params.prompt, optionsCount: params.options.length });
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ratel Prototyper</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #060608;
+      color: #e1e1e6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+    header {
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    h1 span {
+      background: #ffffff;
+      color: #060608;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .prompt {
+      font-size: 16px;
+      color: #8e8e93;
+      line-height: 1.5;
+      margin-top: 12px;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    @media (min-width: 768px) {
+      .options-grid {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      }
+    }
+    .option-card {
+      background: #0c0c0e;
+      border: 1px solid #1a1a20;
+      border-radius: 12px;
+      padding: 24px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+    .option-card:hover {
+      transform: translateY(-4px);
+      border-color: #3e3e44;
+      background: #121216;
+    }
+    .option-card.selected {
+      border-color: #ffffff;
+      background: #121216;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+    }
+    .option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .option-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .option-radio {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #3e3e44;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .option-card.selected .option-radio {
+      border-color: #ffffff;
+    }
+    .option-card.selected .option-radio::after {
+      content: '';
+      width: 10px;
+      height: 10px;
+      background: #ffffff;
+      border-radius: 50%;
+    }
+    .option-desc {
+      font-size: 14px;
+      color: #a1a1a8;
+      line-height: 1.5;
+    }
+    .preview-frame {
+      width: 100%;
+      height: 250px;
+      border: 1px solid #1a1a20;
+      border-radius: 8px;
+      background: #060608;
+      overflow: hidden;
+    }
+    .submit-bar {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .btn-submit {
+      background: #ffffff;
+      color: #060608;
+      border: none;
+      padding: 14px 40px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+    }
+    .btn-submit:hover {
+      background: #e1e1e6;
+      transform: scale(1.02);
+    }
+    .btn-submit:disabled {
+      background: #1a1a20;
+      color: #8e8e93;
+      cursor: not-allowed;
+      transform: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>RATEL <span>PROTOTYPER</span></h1>
+      <div class="prompt" id="prompt-text"></div>
+    </header>
+    
+    <form id="proto-form" action="/select" method="POST">
+      <input type="hidden" name="choice" id="choice-input" value="">
+      <div class="options-grid" id="options-container"></div>
+      <div class="submit-bar">
+        <button type="submit" class="btn-submit" id="submit-btn" disabled>Submit Selection</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const data = ${JSON.stringify({ prompt: params.prompt, options: params.options }).replace(/</g, '\\u003c')};
+    
+    document.getElementById('prompt-text').textContent = data.prompt;
+    
+    const container = document.getElementById('options-container');
+    const choiceInput = document.getElementById('choice-input');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    data.options.forEach(opt => {
+      const card = document.createElement('div');
+      card.className = 'option-card';
+      card.dataset.id = opt.id;
+      
+      const header = document.createElement('div');
+      header.className = 'option-header';
+      
+      const title = document.createElement('div');
+      title.className = 'option-title';
+      title.textContent = opt.title;
+      
+      const radio = document.createElement('div');
+      radio.className = 'option-radio';
+      
+      header.appendChild(title);
+      header.appendChild(radio);
+      card.appendChild(header);
+      
+      const desc = document.createElement('div');
+      desc.className = 'option-desc';
+      desc.textContent = opt.description;
+      card.appendChild(desc);
+      
+      if (opt.html_preview) {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'preview-frame';
+        iframe.srcdoc = opt.html_preview;
+        iframe.sandbox = 'allow-scripts';
+        card.appendChild(iframe);
+      }
+      
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        choiceInput.value = opt.id;
+        submitBtn.disabled = false;
+      });
+      
+      container.appendChild(card);
+    });
+  </script>
+</body>
+</html>`;
+
+    const { createServer } = await import("node:http");
+
+    const result = await new Promise<{ selectedOptionId: string }>((resolve) => {
+      const server = createServer((req, res) => {
+        if (req.method === "POST" && req.url === "/select") {
+          let body = "";
+          req.on("data", chunk => {
+            body += chunk.toString();
+          });
+          req.on("end", () => {
+            const parsed = new URLSearchParams(body);
+            const choice = parsed.get("choice") || "";
+            
+            res.writeHead(200, { "Content-Type": "text/html" });
+            res.end(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="utf-8">
+                <title>Selection Received</title>
+                <style>
+                  body {
+                    background: #060608;
+                    color: #e1e1e6;
+                    font-family: sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                  }
+                  h1 { color: #ffffff; margin-bottom: 16px; }
+                  p { color: #8e8e93; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <h1>Selection Received! ✅</h1>
+                <p>You can now close this tab and return to the terminal.</p>
+              </body>
+              </html>
+            `);
+            
+            server.close();
+            resolve({ selectedOptionId: choice });
+          });
+        } else {
+          res.writeHead(200, { "Content-Type": "text/html" });
+          res.end(htmlContent);
+        }
+      });
+      
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address() as any;
+        const port = address.port;
+        const url = `http://localhost:${port}`;
+        console.log(`\n🛸 [Ratel Prototyper] Please review UI options in your browser: ${url}\n`);
+      });
+    });
+
+    getGlobalLogger()?.toolResult("show_ui_options", { selectedOptionId: result.selectedOptionId });
+
+    return {
+      content: [{ type: "text" as const, text: `User selected option ID: ${result.selectedOptionId}` }],
+      details: { selectedOptionId: result.selectedOptionId } as Record<string, unknown>,
+    };
+  },
+});
+
 /** All orchestrator custom tools. */
 export const ORCHESTRATOR_TOOLS = [
   runResearchTool,
@@ -1767,4 +2091,5 @@ export const ORCHESTRATOR_TOOLS = [
   pingAgentsTool,
   ensureSkillsInstalledTool,
   getFeatureComplexityTool,
+  showUiOptionsTool,
 ];
