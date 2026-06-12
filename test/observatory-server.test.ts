@@ -6,7 +6,6 @@ import { execSync } from "node:child_process";
 import { request } from "node:http";
 
 import { startDashboardServerOnAvailablePort } from "../src/observatory/server.ts";
-import { showUiOptionsTool } from "../src/core/tools.ts";
 
 function httpGet(url: string): Promise<{ status: number; headers: Record<string, string | string[]>; body: string }> {
   return new Promise((resolve, reject) => {
@@ -205,7 +204,7 @@ test("OPTIONS /api/diff returns CORS headers", async () => {
       const allowOrigin = res.headers["access-control-allow-origin"];
       const allowMethods = res.headers["access-control-allow-methods"];
       assert.strictEqual(allowOrigin, "*");
-      assert.strictEqual(allowMethods, "GET, OPTIONS");
+      assert.strictEqual(allowMethods, "GET, POST, OPTIONS");
     } finally {
       await serverHandle.close();
     }
@@ -375,75 +374,175 @@ test("dist/observatory/dashboard.html exists and matches src", () => {
   assert.strictEqual(distContent, srcContent, "copied file must be byte-for-byte identical to source");
 });
 
-test("show_ui_options tool launches local server, accepts selection, and shuts down", async () => {
-  const originalLog = console.log;
-  let serverUrl = "";
-  
-  // Intercept console.log to get the local server URL
-  console.log = (msg: any, ...args: any[]) => {
-    if (typeof msg === "string") {
-      const match = msg.match(/http:\/\/localhost:\d+/);
-      if (match) {
-        serverUrl = match[0];
+import { registerApprovalResolver, resolvePendingApproval } from "../src/observatory/server.ts";
+
+test("Approval resolver registration and resolution", async () => {
+  let resolvedValue: any = null;
+  registerApprovalResolver((val) => {
+    resolvedValue = val;
+  });
+
+  const success = resolvePendingApproval({ approved: true, feedback: "Looks good" });
+  assert.strictEqual(success, true, "Should successfully resolve pending approval");
+  assert.deepStrictEqual(resolvedValue, { approved: true, feedback: "Looks good" });
+
+  const successSecond = resolvePendingApproval({ approved: false });
+  assert.strictEqual(successSecond, false, "Should not resolve when no resolver is registered");
+});
+
+import { request } from "node:http";
+
+function httpPost(url: string, body: any): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const req = request(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+      (res) => {
+        let resBody = "";
+        res.on("data", (chunk) => { resBody += chunk; });
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            body: resBody,
+          });
+        });
       }
-    }
-    originalLog(msg, ...args);
-  };
+    );
+    req.on("error", reject);
+    req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+test("POST /api/approve writes files and resolves approval", async () => {
+  const tempDir = join(process.cwd(), "test-temp-approve-endpoint");
+  mkdirSync(tempDir, { recursive: true });
+  mkdirSync(join(tempDir, ".missions", "current"), { recursive: true });
 
   try {
-    // Run show_ui_options tool execute in background
-    const toolPromise = showUiOptionsTool.execute("test-call", {
-      prompt: "Which UI concept do you prefer?",
-      options: [
-        { id: "concept-a", title: "Concept A", description: "First layout description" },
-        { id: "concept-b", title: "Concept B", description: "Second layout description" },
-      ],
-    });
+    const serverHandle = await startDashboardServerOnAvailablePort({ cwd: tempDir, port: 0, host: "127.0.0.1" });
+    try {
+      let resolverCalled = false;
+      registerApprovalResolver((decision) => {
+        resolverCalled = true;
+        assert.strictEqual(decision.approved, true);
+        assert.strictEqual(decision.feedback, "LGTM");
+      });
 
-    // Wait until the server URL is printed
-    for (let i = 0; i < 20; i++) {
-      if (serverUrl) break;
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-
-    assert.ok(serverUrl, "Server URL should be resolved");
-
-    // Make a POST select request to the local server
-    const postBody = "choice=concept-b";
-    
-    const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
-      const req = request(
-        `${serverUrl}/select`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Content-Length": Buffer.byteLength(postBody),
-          },
-        },
-        (res) => {
-          let body = "";
-          res.on("data", (chunk) => { body += chunk; });
-          res.on("end", () => {
-            resolve({
-              status: res.statusCode ?? 0,
-              body,
-            });
-          });
+      const res = await httpPost(`${serverHandle.url}/api/approve`, {
+        feedback: "LGTM",
+        files: {
+          "validation-contract.md": "updated contract text"
         }
-      );
-      req.on("error", reject);
-      req.write(postBody);
-      req.end();
-    });
+      });
 
-    assert.strictEqual(response.status, 200);
-    assert.ok(response.body.includes("Selection Received"), "Response should confirm selection");
-
-    // Wait for the tool promise to resolve
-    const result = await toolPromise;
-    assert.strictEqual(result.details.selectedOptionId, "concept-b");
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(resolverCalled, true);
+      
+      const fileContent = readFileSync(join(tempDir, ".missions", "current", "validation-contract.md"), "utf-8");
+      assert.strictEqual(fileContent, "updated contract text");
+    } finally {
+      await serverHandle.close();
+    }
   } finally {
-    console.log = originalLog;
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
   }
 });
+
+test("POST /api/reject writes files and resolves rejection", async () => {
+  const tempDir = join(process.cwd(), "test-temp-reject-endpoint");
+  mkdirSync(tempDir, { recursive: true });
+  mkdirSync(join(tempDir, ".missions", "current"), { recursive: true });
+
+  try {
+    const serverHandle = await startDashboardServerOnAvailablePort({ cwd: tempDir, port: 0, host: "127.0.0.1" });
+    try {
+      let resolverCalled = false;
+      registerApprovalResolver((decision) => {
+        resolverCalled = true;
+        assert.strictEqual(decision.approved, false);
+        assert.strictEqual(decision.feedback, "Need OAuth");
+      });
+
+      const res = await httpPost(`${serverHandle.url}/api/reject`, {
+        feedback: "Need OAuth",
+        files: {
+          "validation-contract.md": "contract with comments"
+        }
+      });
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(resolverCalled, true);
+      
+      const fileContent = readFileSync(join(tempDir, ".missions", "current", "validation-contract.md"), "utf-8");
+      assert.strictEqual(fileContent, "contract with comments");
+    } finally {
+      await serverHandle.close();
+    }
+  } finally {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  }
+});
+
+test("GET /api/mission returns mission state, requirements, and features, and raw validation-contract.md", async () => {
+  const tempDir = join(process.cwd(), "test-temp-mission-api-md");
+  mkdirSync(tempDir, { recursive: true });
+  mkdirSync(join(tempDir, ".missions", "current"), { recursive: true });
+
+  try {
+    writeFileSync(join(tempDir, ".missions", "current", "state.json"), JSON.stringify({ phase: "testing" }), "utf-8");
+    writeFileSync(join(tempDir, ".missions", "current", "requirements.json"), JSON.stringify({ goal: "verify dashboard" }), "utf-8");
+    writeFileSync(join(tempDir, ".missions", "current", "features.json"), JSON.stringify({ features: [] }), "utf-8");
+    writeFileSync(join(tempDir, ".missions", "current", "validation-contract.md"), "### Gherkin Scenario 1...", "utf-8");
+
+    const serverHandle = await startDashboardServerOnAvailablePort({ cwd: tempDir, port: 0, host: "127.0.0.1" });
+    try {
+      const res = await httpGet(`${serverHandle.url}/api/mission`);
+      assert.strictEqual(res.status, 200);
+      const parsed = JSON.parse(res.body);
+      assert.strictEqual(parsed.state.phase, "testing");
+      assert.strictEqual(parsed.requirements.goal, "verify dashboard");
+      assert.strictEqual(parsed.validationContractMd, "### Gherkin Scenario 1...");
+    } finally {
+      await serverHandle.close();
+    }
+  } finally {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  }
+});
+
+import { waitForUserApprovalTool } from "../src/core/tools.ts";
+
+test("wait_for_user_approval tool blocks and resolves on approval", async () => {
+  let toolPromiseResolved = false;
+  const toolPromise = waitForUserApprovalTool.execute("test-call", {});
+
+  toolPromise.then((result) => {
+    toolPromiseResolved = true;
+    assert.strictEqual(result.details.approved, true);
+    assert.strictEqual(result.details.feedback, "Go ahead!");
+    assert.ok(result.content[0].text.includes("approved"), "should mention approval");
+  });
+
+  // Resolve approval
+  resolvePendingApproval({ approved: true, feedback: "Go ahead!" });
+
+  await toolPromise;
+  assert.strictEqual(toolPromiseResolved, true);
+});
+
+
+
+

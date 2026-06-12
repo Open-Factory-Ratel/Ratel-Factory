@@ -43,5 +43,4 @@ build-cmd.sh
 
 # Brainstorm session files
 .superpowers/
-hunk/
-plannotator/
+hunkp

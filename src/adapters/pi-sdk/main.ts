@@ -88,7 +88,7 @@ const ORCHESTRATOR_TOOL_NAMES = [
   "list_models",
   "ping_agents",
   "ensure_skills_installed",
-  "show_ui_options",
+  "wait_for_user_approval",
 ];
 
 /**
