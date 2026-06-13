@@ -2,12 +2,16 @@
 import Layout from '../layouts/Layout.astro';
 import TerminalEmulator from '../components/TerminalEmulator.astro';
 import FeatureBlock from '../components/FeatureBlock.astro';
+import ratelLogo from '../assets/Ratel-logo.png';
 ---
 <Layout>
   <!-- ── NAV ── -->
   <nav class="container-wide nav-bar">
     <div class="nav-brand">
-      <span class="brand-logo">RATEL</span>
+      <div class="brand-logo-wrapper">
+        <img src={ratelLogo.src} alt="Ratel Logo" class="brand-logo-img" />
+        <span class="brand-logo">RATEL</span>
+      </div>
       <span class="brand-status"><span class="pulse-dot"></span>Engine: Online</span>
     </div>
     <div class="nav-links">
@@ -134,6 +138,16 @@ import FeatureBlock from '../components/FeatureBlock.astro';
     display: flex;
     align-items: center;
     gap: 16px;
+  }
+  .brand-logo-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .brand-logo-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
   }
   .brand-logo {
     font-size: 1.1rem;
