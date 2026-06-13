@@ -104,13 +104,18 @@
     { type: "success", text: "[SUCCESS] Mission completed! Changes merged into integration branch.\n" }
   ];
 
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const outputElement = document.getElementById("terminal-output");
   
   async function runTerminalSimulation() {
-    if (!outputElement) return;
+    // Prevent execution if element is missing or has been removed from the DOM
+    if (!outputElement || !document.body.contains(outputElement)) return;
     outputElement.innerHTML = "";
 
     for (const line of lines) {
+      // Periodic check to stop simulation if element was detached during sleep
+      if (!document.body.contains(outputElement)) return;
+
       if (line.type === "input") {
         // Type command
         const promptSpan = document.createElement("span");
@@ -122,10 +127,11 @@
         outputElement.appendChild(cmdSpan);
 
         for (let i = 0; i < line.text.length; i++) {
+          if (!document.body.contains(outputElement)) return;
           cmdSpan.textContent += line.text[i];
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await sleep(50);
         }
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await sleep(500);
       } else {
         // Print logs
         const logSpan = document.createElement("span");
@@ -146,12 +152,12 @@
           body.scrollTop = body.scrollHeight;
         }
         
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await sleep(400);
       }
     }
 
     // Loop restart
-    await new Promise((resolve) => setTimeout(resolve, 6000));
+    await sleep(6000);
     runTerminalSimulation();
   }
 
