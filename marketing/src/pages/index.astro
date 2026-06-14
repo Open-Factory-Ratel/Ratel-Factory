@@ -12,7 +12,6 @@ import ratelLogo from '../assets/Ratel-logo.png';
         <img src={ratelLogo.src} alt="Ratel Logo" class="brand-logo-img" />
         <span class="brand-logo">RATEL</span>
       </div>
-      <span class="brand-status"><span class="pulse-dot"></span>Engine: Online</span>
     </div>
     <div class="nav-links">
       <a href="https://github.com/AryanBhargavprojects/Ratel-Factory" class="nav-link">GitHub</a>
@@ -142,42 +141,17 @@ import ratelLogo from '../assets/Ratel-logo.png';
   .brand-logo-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
   }
   .brand-logo-img {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
     object-fit: contain;
   }
   .brand-logo {
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: 0.5px;
-  }
-  .brand-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--card-bg);
-  }
-  .pulse-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--console-green);
-    display: inline-block;
-    box-shadow: 0 0 6px var(--console-green);
-    animation: pulseAnim 2s infinite;
-  }
-  @keyframes pulseAnim {
-    0% { opacity: 0.4; }
-    50% { opacity: 1; }
-    100% { opacity: 0.4; }
   }
   .nav-link {
     font-size: 0.76rem;
