@@ -238,6 +238,7 @@ export async function spawnScrutinyValidator(
   logger: EventLogger | undefined,
   scope: MissionScope,
   model?: string,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<string> {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -310,6 +311,7 @@ export async function spawnScrutinyValidator(
     logger,
     agentLevel: "scrutiny_validator",
     parentSpanId: agentSpanId,
+    budgetManager,
   });
 
   let response = "";
@@ -341,6 +343,7 @@ export async function spawnUserTestingValidator(
   projectRoot: string,
   logger: EventLogger | undefined,
   model?: string,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<string> {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -475,6 +478,7 @@ export async function spawnUserTestingShardAgent(
   model?: string,
   logger?: EventLogger,
   parentSpanId?: string | undefined,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<{ response: string; receiver: ReturnType<typeof createSubmitUserTestingShardReportTool>["receiver"] }> {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -551,6 +555,7 @@ export async function spawnUserTestingShardAgent(
     logger,
     agentLevel: "user_testing_shard",
     parentSpanId: agentSpanId,
+    budgetManager,
   });
 
   let response = "";

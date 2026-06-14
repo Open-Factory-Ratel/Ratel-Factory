@@ -31,6 +31,9 @@ export { spawnResearchAgent, spawnSmartFriendAgent, spawnContractAgent } from ".
 export { EventLogger, setGlobalLogger, getGlobalLogger, clearGlobalLogger } from "./core/observability/event-logger.js";
 export { DEFAULT_ORCHESTRATOR_SKILLS_DIR, loadSkillsFromDir } from "./core/utils/skills.js";
 export { createMissionScope, getMissionDir, getRatelDir, type MissionScope } from "./core/mission/scope.js";
+export { readJsonFile, atomicWriteJson, atomicWriteFile } from "./core/mission/atomic-file.js";
+export { BudgetManager } from "./core/budget/budget-manager.js";
+export { ModelRouter } from "./core/models/model-router.js";
 export { startObservatory, type ObservatoryHandle } from "./observatory/service.js";
 export { startDashboardServer, startDashboardServerOnAvailablePort, getCurrentDashboardUrl } from "./observatory/server.js";
 export { default as registerObservatoryDashboard } from "./observatory/dashboard.js";

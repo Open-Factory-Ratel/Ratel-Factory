@@ -73,6 +73,7 @@ export interface DashboardServerOptions {
   cwd: string;
   port?: number;
   host?: string;
+  controlPlane?: import("../control-plane/mission-control-plane.js").MissionControlPlane;
 }
 
 export interface DashboardServerHandle {
@@ -104,7 +105,7 @@ async function resolveMissionId(cwd: string, preferredMissionId?: string): Promi
   return record?.missionId ?? "mis_00000001";
 }
 
-function createDashboardServer(cwd: string): Server {
+function createDashboardServer(cwd: string, controlPlane?: import("../control-plane/mission-control-plane.js").MissionControlPlane): Server {
   return createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
     const pathname = url.pathname;
@@ -257,8 +258,19 @@ function createDashboardServer(cwd: string): Server {
           "utf-8"
         );
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, missionId }));
+        // Resume mission through the control plane if available
+        if (controlPlane) {
+          const nextJob = await controlPlane.submitApproval(missionId, {
+            approved: true,
+            feedback: body.feedback,
+            files: body.files,
+          });
+          res.writeHead(202, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, missionId, jobId: nextJob.jobId, status: nextJob.status }));
+        } else {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, missionId }));
+        }
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
@@ -309,8 +321,19 @@ function createDashboardServer(cwd: string): Server {
           "utf-8"
         );
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, missionId }));
+        // Resume mission through the control plane if available
+        if (controlPlane) {
+          const nextJob = await controlPlane.submitApproval(missionId, {
+            approved: false,
+            feedback: body.feedback,
+            files: body.files,
+          });
+          res.writeHead(202, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, missionId, jobId: nextJob.jobId, status: nextJob.status }));
+        } else {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, missionId }));
+        }
       } catch (err) {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
@@ -372,8 +395,8 @@ export function logDashboardUrl(port: number): void {
  * port and returns the raw Server synchronously.
  */
 export function startDashboardServer(options: DashboardServerOptions): Server {
-  const { cwd, port = 8765, host = "127.0.0.1" } = options;
-  const server = createDashboardServer(cwd);
+  const { cwd, port = 8765, host = "127.0.0.1", controlPlane } = options;
+  const server = createDashboardServer(cwd, controlPlane);
 
   server.listen(port, host, () => {
     const address = server.address() as AddressInfo;
@@ -393,14 +416,14 @@ export function startDashboardServer(options: DashboardServerOptions): Server {
 export async function startDashboardServerOnAvailablePort(
   options: DashboardServerOptions & { maxPortAttempts?: number },
 ): Promise<DashboardServerHandle> {
-  const { cwd, port = 8765, host = "127.0.0.1", maxPortAttempts = 20 } = options;
+  const { cwd, port = 8765, host = "127.0.0.1", maxPortAttempts = 20, controlPlane } = options;
   const candidatePorts = port === 0
     ? [0]
     : Array.from({ length: maxPortAttempts }, (_, index) => port + index);
 
   let lastError: unknown;
   for (const candidatePort of candidatePorts) {
-    const server = createDashboardServer(cwd);
+    const server = createDashboardServer(cwd, controlPlane);
     try {
       const actualPort = await listen(server, candidatePort, host);
       if (candidatePort !== port && port !== 0) {

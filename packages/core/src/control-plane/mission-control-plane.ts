@@ -37,7 +37,7 @@ export class MissionControlPlane {
   private running = false;
   private pumpPromise: Promise<void> | undefined;
   private wakeResolve: (() => void) | undefined;
-  private activeJobs = new Map<string, { missionId: string; abortController: AbortController; heartbeatTimer: ReturnType<typeof setInterval> }>();
+  private activeJobs = new Map<string, { missionId: string; abortController: AbortController; heartbeatTimer: ReturnType<typeof setInterval>; runPromise: Promise<void> }>();
 
   constructor(private options: MissionControlPlaneOptions) {
     this.missionStore = new MissionStore(options.cwd);
@@ -66,10 +66,17 @@ export class MissionControlPlane {
 
     this.wake();
 
-    // Requeue all running jobs so they can be picked up by the next control plane
-    for (const [jobId, active] of this.activeJobs) {
+    // Wait for all active executors to finish (or abort) before requeueing.
+    // This prevents the same job from being claimed twice concurrently.
+    const activeEntries = Array.from(this.activeJobs.entries());
+    for (const [jobId, active] of activeEntries) {
       active.abortController.abort();
       clearInterval(active.heartbeatTimer);
+      try {
+        await active.runPromise;
+      } catch {
+        // Executor may have thrown; we only care that it finished.
+      }
       try {
         await this.jobStore.requeue(active.missionId, jobId, {
           code: "SHUTDOWN",
@@ -241,10 +248,11 @@ export class MissionControlPlane {
       }
     }, Math.max(this.leaseMs / 2, 250));
 
-    this.activeJobs.set(job.jobId, { missionId: job.missionId, abortController, heartbeatTimer });
+    const runPromise = this.executor.execute(job, abortController.signal);
+    this.activeJobs.set(job.jobId, { missionId: job.missionId, abortController, heartbeatTimer, runPromise });
 
     try {
-      await this.executor.execute(job, abortController.signal);
+      await runPromise;
       await this.jobStore.markSucceeded(job.missionId, job.jobId);
     } catch (err) {
       const isAbort = err instanceof Error && /abort/i.test(err.message);

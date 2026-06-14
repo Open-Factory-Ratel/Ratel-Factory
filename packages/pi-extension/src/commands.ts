@@ -35,7 +35,7 @@ export async function handleCommand(ctx: CommandContext): Promise<void> {
         }
         const [mission, job] = await Promise.all([
           service.getMissionStatus(cachedMissionId).catch((e: Error) => ({ missionId: cachedMissionId, state: { error: e.message } })),
-          cachedJobId ? service.getJobStatus(cachedJobId).catch((e: Error) => ({ jobId: cachedJobId, status: `error: ${e.message}` })) : undefined,
+          cachedJobId ? service.getJobStatus(cachedMissionId, cachedJobId).catch((e: Error) => ({ jobId: cachedJobId, status: `error: ${e.message}` })) : undefined,
         ]);
         const lines = [
           `Mission: ${mission.missionId}`,

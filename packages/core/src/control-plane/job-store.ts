@@ -58,17 +58,28 @@ export class JobStore {
 
     if (input.idempotencyKey) {
       const idemPath = this.getIdempotencyPath(input.idempotencyKey);
-      const existing = await withFileLock(idemPath, async () => {
-        return await readJsonFile<{ missionId: string; jobId: string }>(idemPath);
-      });
-      if (existing && existing.missionId === input.missionId) {
-        const job = await this.getJob(input.missionId, existing.jobId);
-        if (job) {
-          return { job, created: false };
+      return withFileLock(idemPath, async () => {
+        const existing = await readJsonFile<{ missionId: string; jobId: string }>(idemPath);
+        if (existing && existing.missionId === input.missionId) {
+          const job = await this.getJob(input.missionId, existing.jobId);
+          if (job) {
+            return { job, created: false };
+          }
         }
-      }
+        return this.createJobInner(input);
+      });
     }
 
+    return this.createJobInner(input);
+  }
+
+  private async createJobInner(input: {
+    missionId: string;
+    type: MissionJobType;
+    payload: Record<string, unknown>;
+    maxAttempts: number;
+    idempotencyKey?: string;
+  }): Promise<{ job: MissionJob; created: boolean }> {
     const jobId = generateJobId();
     const now = nowIso();
     const job: MissionJob = {
@@ -369,6 +380,23 @@ export class JobStore {
             if (!current) return undefined;
             if (current.status !== "running" || !current.leaseExpiresAt || current.leaseExpiresAt >= nowIso) {
               return undefined;
+            }
+            // Do not reclaim if attempts exhausted
+            if (current.attempt >= current.maxAttempts) {
+              const failed: MissionJob = {
+                ...current,
+                status: "failed",
+                leaseOwner: undefined,
+                leaseExpiresAt: undefined,
+                updatedAt: nowIso,
+                error: {
+                  code: "LEASE_EXPIRED",
+                  message: "Job lease expired and max attempts exhausted.",
+                  retryable: false,
+                },
+              };
+              await atomicWriteJson(path, failed);
+              return failed;
             }
             const next: MissionJob = {
               ...current,

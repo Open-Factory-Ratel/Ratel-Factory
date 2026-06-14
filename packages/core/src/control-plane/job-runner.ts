@@ -106,7 +106,7 @@ export class JobRunner implements JobExecutor {
 
         const wallClockSignal = budget.createWallClockAbortSignal(signal);
         const prompt = this.buildPrompt(job);
-        await agent.prompt(prompt);
+        await agent.prompt(prompt, wallClockSignal);
 
         // Success — record circuit success and clean up
         await models.recordSuccess(modelString);

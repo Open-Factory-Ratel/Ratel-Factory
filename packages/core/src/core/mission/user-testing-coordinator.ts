@@ -155,6 +155,7 @@ export async function runShard(
   model: string | undefined,
   runId: string,
   logger?: EventLogger,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<UserTestingShardRunResult> {
   const startTime = Date.now();
   const rawFilename = `user-testing-shards/${runId}/${shard.shardId}.raw.txt`;
@@ -171,7 +172,7 @@ export async function runShard(
   let shardReceiver: ReturnType<typeof import("../workers/validators.js").createSubmitUserTestingShardReportTool>["receiver"] | undefined;
 
   try {
-    const shardResult = await spawnUserTestingShardAgent(shard, scope.projectRoot, model, logger, parentSpanId);
+    const shardResult = await spawnUserTestingShardAgent(shard, scope.projectRoot, model, logger, parentSpanId, budgetManager);
     responseText = shardResult.response;
     shardReceiver = shardResult.receiver;
   } catch (err) {
@@ -352,6 +353,7 @@ export async function runUserTestingCoordinator(
   features: Feature[],
   model: string | undefined,
   logger?: EventLogger,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<{
   parseStatus: "ok" | "failed";
   coordinatorStatus: "complete" | "incomplete";

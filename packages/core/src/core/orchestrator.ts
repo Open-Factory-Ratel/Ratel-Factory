@@ -236,7 +236,7 @@ export class OrchestratorAgent {
    * Send a prompt to the orchestrator and wait for it to finish.
    * If a mission state exists, it is automatically injected as context.
    */
-  async prompt(text: string): Promise<void> {
+  async prompt(text: string, signal?: AbortSignal): Promise<void> {
     if (!this.session) {
       throw new Error("OrchestratorAgent not initialised. Call init() first.");
     }
@@ -254,7 +254,25 @@ export class OrchestratorAgent {
       // If no mission state exists yet, proceed with raw prompt
     }
 
-    await this.session.prompt(augmented);
+    // Wire abort signal to session abort
+    let abortHandler: (() => void) | undefined;
+    if (signal) {
+      if (signal.aborted) {
+        throw new Error("Prompt aborted before execution");
+      }
+      abortHandler = () => {
+        this.session?.abort();
+      };
+      signal.addEventListener("abort", abortHandler);
+    }
+
+    try {
+      await this.session.prompt(augmented);
+    } finally {
+      if (abortHandler && signal) {
+        signal.removeEventListener("abort", abortHandler);
+      }
+    }
   }
 
   /**

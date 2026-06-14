@@ -55,7 +55,7 @@ export class ModelRouter {
   /** Get the ordered list of candidate model strings for a role. */
   async getCandidates(role: AgentRole): Promise<string[]> {
     const roleConfig = this.config[role];
-    const allModels = [roleConfig.model, ...roleConfig.fallbackModels].filter((m): m is string => m !== null && m !== "sdk-default");
+    const allModels = [roleConfig.model, ...roleConfig.fallbackModels].filter((m): m is string => m !== null);
     const unique = [...new Set(allModels)];
 
     const now = Date.now();

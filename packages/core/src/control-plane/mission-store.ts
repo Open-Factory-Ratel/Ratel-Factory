@@ -60,19 +60,32 @@ export class MissionStore {
       throw new Error("goal must be a non-empty string");
     }
 
+    // If an idempotency key is provided, acquire a lock on the idempotency
+    // path and hold it for the entire creation to prevent duplicates.
     if (input.idempotencyKey) {
       const idemPath = this.getIdempotencyPath(input.idempotencyKey);
-      const existing = await withFileLock(idemPath, async () => {
-        return await readJsonFile<{ missionId: string; jobId?: string }>(idemPath);
-      });
-      if (existing) {
-        const mission = await this.getMission(existing.missionId);
-        if (mission) {
-          return { mission, created: false };
+      return withFileLock(idemPath, async () => {
+        const existing = await readJsonFile<{ missionId: string; jobId?: string }>(idemPath);
+        if (existing) {
+          const mission = await this.getMission(existing.missionId);
+          if (mission) {
+            return { mission, created: false };
+          }
         }
-      }
+        const result = await this.createMissionInner(input);
+        await atomicWriteJson(idemPath, { missionId: result.mission.missionId });
+        return result;
+      });
     }
 
+    return this.createMissionInner(input);
+  }
+
+  private async createMissionInner(input: {
+    goal: string;
+    budget?: Partial<MissionBudgetLimits>;
+    idempotencyKey?: string;
+  }): Promise<{ mission: MissionRecord; created: boolean }> {
     const missionId = generateMissionId();
     const now = nowIso();
     const mission: MissionRecord = {
@@ -88,13 +101,6 @@ export class MissionStore {
     await withFileLock(missionPath, async () => {
       await atomicWriteJson(missionPath, mission);
     });
-
-    if (input.idempotencyKey) {
-      const idemPath = this.getIdempotencyPath(input.idempotencyKey);
-      await withFileLock(idemPath, async () => {
-        await atomicWriteJson(idemPath, { missionId });
-      });
-    }
 
     return { mission, created: true };
   }

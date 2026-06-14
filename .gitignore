@@ -7,9 +7,11 @@ package-lock.json
 
 # Build output
 dist/
+*.tsbuildinfo
 
 # Mission artifacts (ephemeral per run)
 .missions/
+.ratel/
 
 # Test suite (not shipped)
 test/

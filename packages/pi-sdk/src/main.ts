@@ -8,11 +8,8 @@
  *     -> Pi's agent uses Ratel's createRuntime factory
  *        -> System prompt: ORCHESTRATOR_PROMPT
  *        -> Skills: orchestrator skill set (14 skills, isolated)
- *        -> Tools: read, grep, find, ls, bash + ORCHESTRATOR_TOOLS (13 custom)
+ *        -> Tools: read, grep, find, ls, bash + custom tools from createOrchestratorTools
  *        -> Model: from ratel.json (or SDK default if null)
- *     -> When agent calls run_worker (or other subagent tool):
- *        -> spawnWorkerAgent() / spawn*Validator() use createAgentSession()
- *           internally inside tool execute() handlers (correct and unchanged)
  */
 
 import {
@@ -29,8 +26,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   ORCHESTRATOR_PROMPT,
-  ORCHESTRATOR_TOOLS,
-  setToolCwd,
+  createOrchestratorTools,
   ensureMissionInitialized,
   startObservatory,
   type ObservatoryHandle,
@@ -40,9 +36,9 @@ import {
   getObservabilityConfig,
   resolveModel,
   EventLogger,
-  setGlobalLogger,
-  clearGlobalLogger,
   createMissionScope,
+  getRatelDir,
+  readJsonFile,
 } from "@ratel/core";
 
 /**
@@ -95,26 +91,65 @@ const ORCHESTRATOR_TOOL_NAMES = [
   "wait_for_user_approval",
 ];
 
+async function getCurrentMissionId(cwd: string): Promise<string | undefined> {
+  try {
+    const currentMissionPath = `${getRatelDir(cwd)}/current-mission.json`;
+    const record = await readJsonFile<{ missionId: string }>(currentMissionPath);
+    return record?.missionId;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Factory that builds each Ratel session.
- *
- * Ensures the returned `services` and the created session share the same
- * authStorage, settingsManager, modelRegistry, and resourceLoader (with our
- * custom skill isolation + system prompt override). This is the same pattern
- * as Pi's SDK example 13 (13-session-runtime.ts).
  */
 const createRuntime: CreateAgentSessionRuntimeFactory = async ({
   cwd,
   sessionManager,
   sessionStartEvent,
 }) => {
-  // 1. Initialize mission state under .missions/current/ before anything else
-  const scope = createMissionScope(cwd, "mis_00000001");
+  // Resolve current mission from `.ratel/current-mission.json`, or fall back
+  // to creating a fresh one. Never hard-code `mis_00000001`.
+  let missionId = await getCurrentMissionId(cwd);
+  if (!missionId) {
+    missionId = `mis_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  }
+
+  const scope = createMissionScope(cwd, missionId);
   const logger = await EventLogger.forMission(scope);
   await ensureMissionInitialized(scope, logger);
 
-  // 2. Make cwd available to custom tools (run_worker, run_research, etc.)
-  setToolCwd(cwd);
+  // Build context with budget and model router for failover support
+  const { BudgetManager } = await import("@ratel/core");
+  const { getBudgetConfig } = await import("@ratel/core");
+  const { ModelRouter } = await import("@ratel/core");
+  const { getFallbackModelConfig } = await import("@ratel/core");
+
+  const budgetLimits = await getBudgetConfig(cwd);
+  const budget = new BudgetManager(scope);
+  await budget.initialize(budgetLimits);
+
+  const fallbackConfig = await getFallbackModelConfig(cwd);
+  const models = new ModelRouter({
+    projectRoot: cwd,
+    orchestrator: {
+      model: fallbackConfig.orchestrator.model ?? "sdk-default",
+      fallbackModels: fallbackConfig.orchestrator.fallbackModels ?? [],
+    },
+    worker: {
+      model: fallbackConfig.worker.model ?? "sdk-default",
+      fallbackModels: fallbackConfig.worker.fallbackModels ?? [],
+    },
+    validator: {
+      model: fallbackConfig.validator.model ?? "sdk-default",
+      fallbackModels: fallbackConfig.validator.fallbackModels ?? [],
+    },
+    modelRouting: fallbackConfig.modelRouting,
+  });
+  await models.init();
+
+  const executionContext = { scope, logger, budget, models };
 
   // 3. Build the cwd-independent parts: auth, model registry, settings
   const authStorage = AuthStorage.create();
@@ -138,8 +173,6 @@ const createRuntime: CreateAgentSessionRuntimeFactory = async ({
   const orchestratorModel = resolveModel(modelConfig.orchestrator);
 
   // 6. Create cwd-bound services with our custom config.
-  //    The SDK will construct a DefaultResourceLoader from these options
-  //    and call reload() internally.
   const services = await createAgentSessionServices({
     cwd,
     agentDir: getAgentDir(),
@@ -163,7 +196,7 @@ const createRuntime: CreateAgentSessionRuntimeFactory = async ({
     model: orchestratorModel,
     thinkingLevel: "medium",
     tools: ORCHESTRATOR_TOOL_NAMES,
-    customTools: ORCHESTRATOR_TOOLS,
+    customTools: createOrchestratorTools(executionContext),
   });
 
   return {
@@ -179,15 +212,13 @@ async function main(): Promise<void> {
 
   // Initialize mission artifacts first so the logger can attach a traceId
   // without creating a partial state.json.
-  const mainScope = createMissionScope(cwd, "mis_00000001");
-  const logger = await EventLogger.forMission(mainScope);
-  await ensureMissionInitialized(mainScope, logger);
-
-  // Initialize the global event logger before any agent work happens.
-  // The logger reads/writes traceId to state.json so events across runs
-  // of the same mission are stitched together.
+  let missionId = await getCurrentMissionId(cwd);
+  if (!missionId) {
+    missionId = `mis_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  }
+  const mainScope = createMissionScope(cwd, missionId);
   const mainLogger = await EventLogger.forMission(mainScope);
-  setGlobalLogger(mainLogger);
+  await ensureMissionInitialized(mainScope, mainLogger);
 
   // Start Observatory deterministically before InteractiveMode accepts the
   // first prompt. Startup is fail-soft: the factory continues if the dashboard
@@ -202,7 +233,6 @@ async function main(): Promise<void> {
   });
 
   // Ensure unflushed events are persisted before process exit.
-  // SIGINT (Ctrl+C), SIGTERM, normal exit, and uncaught exceptions all flush.
   const shutdown = async (): Promise<void> => {
     try {
       await observatory.shutdown();
@@ -214,27 +244,17 @@ async function main(): Promise<void> {
       await mainLogger.shutdown();
     } catch (err) {
       console.error("Error flushing event log:", err);
-    } finally {
-      clearGlobalLogger();
     }
   };
   process.on("SIGINT", () => void shutdown().then(() => process.exit(130)));
   process.on("SIGTERM", () => void shutdown().then(() => process.exit(143)));
   process.on("beforeExit", () => void shutdown());
-  // Uncaught exceptions: log and attempt graceful shutdown, but do NOT
-  // unconditionally exit. The EventLogger is fail-soft by design, so most
-  // logging-related errors are already swallowed. Any exception that reaches
-  // here is likely a real bug — log it loudly so the user can see, but keep
-  // the TUI running so they can recover state and decide what to do.
   process.on("uncaughtException", (err) => {
     console.error("[FATAL] uncaughtException:", err);
-    // Attempt graceful shutdown of the logger, but do not force-exit.
-    // The Pi runtime may still be usable for the next turn.
     void shutdown();
   });
   process.on("unhandledRejection", (reason) => {
     console.error("[FATAL] unhandledRejection:", reason);
-    // Same logic: log, but do not kill the process.
     void shutdown();
   });
 

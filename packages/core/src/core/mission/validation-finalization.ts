@@ -65,7 +65,7 @@ export async function evaluateMilestoneValidation(
   }
   const milestoneFeatures = features.filter((f) => f.milestoneId === input.milestoneId);
   for (const feature of milestoneFeatures) {
-    if (feature.status === "pending" || feature.status === "in_progress") {
+    if (feature.status === "pending" || feature.status === "in_progress" || feature.status === "blocked") {
       errors.push(`Feature ${feature.id} is "${feature.status}". All features must be integrated or validated before validation.`);
     } else if (feature.status === "integrated" || feature.status === "validated") {
       if (feature.status === "integrated") {

@@ -795,6 +795,7 @@ export function runValidationTool(context: MissionExecutionContext) {
             context.logger,
             context.scope,
             validatorModelConfig.validator ?? undefined,
+            context.budget,
           );
 
         // 3. ALWAYS persist raw validator output for audit / fallback inspection.
@@ -1001,7 +1002,7 @@ export function runWorkerTool(context: MissionExecutionContext) {
           );
 
           const workerModelConfig = await getModelConfig(context.scope.projectRoot);
-          const result = await spawnWorkerAgent(feature, acceptanceCriteria, procedures, context.scope, context.logger, workerSkills, workerModelConfig.worker ?? undefined, workspace, effectiveTimeoutMinutes);
+          const result = await spawnWorkerAgent(feature, acceptanceCriteria, procedures, context.scope, context.logger, workerSkills, workerModelConfig.worker ?? undefined, workspace, effectiveTimeoutMinutes, context.budget);
 
           // Persist the raw worker transcript before interpreting the handoff.
           // This preserves the ground truth needed to debug parseStatus failures.

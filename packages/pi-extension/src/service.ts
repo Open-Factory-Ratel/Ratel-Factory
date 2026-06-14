@@ -68,31 +68,31 @@ export class RatelServiceClient {
   }
 
   async startMission(goal: string): Promise<EnqueuedJobResponse> {
-    return this.post("/mission/start", { goal });
+    return this.post("/missions", { goal });
   }
 
   async getMissionStatus(missionId: string): Promise<MissionStatusResponse> {
-    return this.get(`/mission/status?missionId=${encodeURIComponent(missionId)}`);
+    return this.get(`/missions/${encodeURIComponent(missionId)}`);
   }
 
-  async getJobStatus(jobId: string): Promise<JobStatusResponse> {
-    return this.get(`/job/status?jobId=${encodeURIComponent(jobId)}`);
+  async getJobStatus(missionId: string, jobId: string): Promise<JobStatusResponse> {
+    return this.get(`/missions/${encodeURIComponent(missionId)}/jobs/${encodeURIComponent(jobId)}`);
   }
 
-  async cancelJob(jobId: string): Promise<{ jobId: string; status: string }> {
-    return this.post("/job/cancel", { jobId });
+  async cancelJob(missionId: string, jobId: string): Promise<{ jobId: string; status: string }> {
+    return this.post(`/missions/${encodeURIComponent(missionId)}/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   }
 
   async approveMission(missionId: string): Promise<EnqueuedJobResponse> {
-    return this.post("/mission/approve", { missionId });
+    return this.post(`/missions/${encodeURIComponent(missionId)}/approval`, { approved: true });
   }
 
   async runWorker(missionId: string, featureId: string): Promise<EnqueuedJobResponse> {
-    return this.post("/mission/worker", { missionId, featureId });
+    return this.post(`/missions/${encodeURIComponent(missionId)}/workers`, { featureId });
   }
 
   async runValidation(missionId: string, milestoneId: string): Promise<EnqueuedJobResponse> {
-    return this.post("/mission/validate", { missionId, milestoneId });
+    return this.post(`/missions/${encodeURIComponent(missionId)}/validations`, { milestoneId });
   }
 
   async getObservatoryUrl(): Promise<ObservatoryStatusResponse> {
@@ -100,6 +100,6 @@ export class RatelServiceClient {
   }
 
   getMissionEventsUrl(missionId: string): string {
-    return `${this.baseUrl}/api/v1/mission/${encodeURIComponent(missionId)}/events`;
+    return `${this.baseUrl}/api/v1/missions/${encodeURIComponent(missionId)}/events`;
   }
 }

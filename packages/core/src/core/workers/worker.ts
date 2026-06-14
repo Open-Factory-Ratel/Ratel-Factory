@@ -166,6 +166,7 @@ export async function spawnWorkerAgent(
   model?: string,
   workspace?: WorkerWorkspaceResult,
   timeoutMinutes?: number,
+  budgetManager?: import("../budget/budget-manager.js").BudgetManager,
 ): Promise<WorkerResult> {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -257,6 +258,7 @@ Implement this feature using public-interface TDD. Keep scope to the acceptance 
     logger,
     agentLevel: "worker",
     parentSpanId: agentSpanId,
+    budgetManager,
   });
 
   // Worker safety cap: default 30 minutes, configurable by the orchestrator
