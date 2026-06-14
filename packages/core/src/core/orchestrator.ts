@@ -19,6 +19,7 @@ import { getModelConfig, resolveModel } from "./config.js";
 import { EventLogger } from "./observability/event-logger.js";
 import { createMissionScope } from "./mission/scope.js";
 import type { MissionExecutionContext } from "./mission/execution-context.js";
+import { BudgetManager } from "./budget/budget-manager.js";
 
 /**
  * OrchestratorAgent — Mission-State Governor
@@ -46,6 +47,8 @@ export interface OrchestratorOptions {
   model?: string;
   /** Job control for durable approval flow */
   jobControl?: MissionExecutionContext["jobControl"];
+  /** Budget manager for mission-level budget enforcement */
+  budget?: BudgetManager;
 }
 
 export class OrchestratorAgent {
@@ -68,7 +71,7 @@ export class OrchestratorAgent {
     const logger = await EventLogger.forMission(scope);
     await ensureMissionInitialized(scope, logger);
 
-    this.context = { scope, logger, jobControl: options.jobControl };
+    this.context = { scope, logger, budget: options.budget!, jobControl: options.jobControl };
 
     const inMemory = options.inMemory ?? true;
 

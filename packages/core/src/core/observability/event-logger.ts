@@ -47,7 +47,9 @@ export type EventType =
   | "session_tool_end"
   | "session_agent_event"
   | "validation_recovery"
-  | "integration_preflight";
+  | "integration_preflight"
+  | "budget_usage"
+  | "budget_exceeded";
 
 export interface RatelEvent {
   timestamp: string;            // ISO 8601
@@ -86,6 +88,11 @@ export class EventLogger {
         console.error("[EventLogger] timer-fired flush rejected:", err);
       });
     }, this.flushIntervalMs);
+  }
+
+  /** Access the current trace ID (mission-level correlation). */
+  getTraceId(): string {
+    return this.traceId;
   }
 
   /** Create a logger for the current mission. Reads trace_id from state.json if present. */
@@ -257,6 +264,16 @@ export class EventLogger {
   /** Log whether completed feature commits are present on the integration branch before validation. */
   integrationPreflight(data: { milestoneId: string; status: string; branch: string; repoPath?: string; missingFeatureIds?: string[]; checkedFeatureCount?: number }): void {
     this.emit("integration_preflight", data);
+  }
+
+  /** Log a budget usage event. */
+  budgetUsage(data: { missionId: string; costUsd: number; totalTokens: number; remainingCostUsd: number | null; remainingTokens: number | null }): void {
+    this.emit("budget_usage", data);
+  }
+
+  /** Log a budget exceeded event. */
+  budgetExceeded(data: { missionId: string; reason: string; limit: number; actual: number }): void {
+    this.emit("budget_exceeded", data);
   }
 
   /**

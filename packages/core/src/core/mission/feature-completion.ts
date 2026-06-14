@@ -7,7 +7,7 @@
 import type { WorkerRunReceipt, Feature } from "../types.js";
 import { readWorkerReceipt } from "../report-submission.js";
 import { readFeatures, writeFeatures } from "../artifacts.js";
-import type { MissionScope } from "../scope.js";
+import type { MissionScope } from "./scope.js";
 import { join } from "node:path";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";

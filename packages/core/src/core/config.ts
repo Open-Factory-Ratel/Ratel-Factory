@@ -21,6 +21,9 @@ import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { resolveBudgetLimits } from "./budget/types.js";
+import type { MissionBudgetLimits } from "./budget/types.js";
+
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface ModelConfig {
@@ -50,10 +53,13 @@ export interface UserTestingConfig {
   basePort?: number;
 }
 
+export interface MissionBudgetConfig extends Partial<MissionBudgetLimits> {}
+
 export interface RatelConfig {
   name?: string;
   version?: string;
   observability?: ObservabilityConfig;
+  budget?: MissionBudgetConfig;
   orchestrator?: {
     systemPrompt?: string | null;
     thinkingLevel?: string;
@@ -238,6 +244,15 @@ export async function listAvailableModels(cwd: string): Promise<ModelInfo[]> {
     name: m.name ?? m.id,
     hasAuth: modelRegistry.hasConfiguredAuth(m),
   }));
+}
+
+/**
+ * Resolve budget limits from ratel.json project defaults and optional mission request overrides.
+ * Rejects negative or non-finite values. Persists resolved snapshot in mission budget.json.
+ */
+export async function getBudgetConfig(cwd: string, missionOverrides?: MissionBudgetConfig): Promise<MissionBudgetLimits> {
+  const config = await readRatelConfig(cwd);
+  return resolveBudgetLimits(config.budget ?? {}, missionOverrides ?? {});
 }
 
 /**

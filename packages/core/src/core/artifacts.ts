@@ -160,7 +160,7 @@ export async function readFeatures(scope: import("./mission/scope.js").MissionSc
 
 export async function getIntegratedFeaturesForMilestone(scope: import("./mission/scope.js").MissionScope, milestoneId: string): Promise<Feature[]> {
   const features = await readFeatures(scope);
-  return features ? selectIntegratedFeaturesForMilestone(features, milestoneId) : [];
+  return features ? selectCompletedFeaturesForMilestone(features, milestoneId) : [];
 }
 
 export async function writeMilestones(scope: import("./mission/scope.js").MissionScope, milestones: Milestone[]): Promise<void> {

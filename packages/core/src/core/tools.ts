@@ -32,7 +32,6 @@ import {
   bumpVersion,
   listFeatureFiles,
   writeFeatureFile,
-  getCompletedFeaturesForMilestone,
   getIntegratedFeaturesForMilestone,
 } from "./artifacts.js";
 import {
@@ -1128,7 +1127,7 @@ export function runUserTestingTool(context: MissionExecutionContext) {
         };
       }
 
-      const preflight = await checkCompletedFeatureIntegration(context.scope, milestoneFeatures);
+      const preflight = await checkIntegratedFeatureIntegration(context.scope, milestoneFeatures);
       context.logger.integrationPreflight({
         milestoneId: params.milestoneId,
         status: preflight.status,
@@ -1899,7 +1898,7 @@ export function markMilestoneValidatedTool(context: MissionExecutionContext) {
               "Address the issues and retry.",
             ].join("\n"),
           }],
-          details: { success: false, errors: result.errors },
+          details: { success: false, errors: result.errors, milestoneId: undefined as string | undefined, featureIds: undefined as string[] | undefined },
         };
       }
 
@@ -1915,7 +1914,7 @@ export function markMilestoneValidatedTool(context: MissionExecutionContext) {
           type: "text" as const,
           text: `Milestone ${params.milestoneId} marked as validated. Features transitioned: ${result.featureIds.join(", ")}.`,
         }],
-        details: { success: true, milestoneId: params.milestoneId, featureIds: result.featureIds },
+        details: { success: true, milestoneId: params.milestoneId, featureIds: result.featureIds, errors: [] as string[] },
       };
     },
   });
@@ -1949,7 +1948,7 @@ export function markMissionCompletedTool(context: MissionExecutionContext) {
               ...result.errors.map((e) => `- ${e}`),
             ].join("\n"),
           }],
-          details: { success: false, errors: result.errors },
+          details: { success: false, errors: result.errors, phase: undefined as string | undefined },
         };
       }
 
@@ -1967,7 +1966,7 @@ export function markMissionCompletedTool(context: MissionExecutionContext) {
           type: "text" as const,
           text: "Mission marked as completed.",
         }],
-        details: { success: true, phase: "completed" },
+        details: { success: true, phase: "completed", errors: [] as string[] },
       };
     },
   });
