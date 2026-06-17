@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { MissionStore } from "./mission-store.js";
 import { JobStore } from "./job-store.js";
 import { runLegacyMigration } from "./legacy-migration.js";
+import { createMissionScope } from "../core/mission/scope.js";
+import { readPendingUserInput } from "../core/mission/user-input.js";
 import type { JobExecutor } from "./job-runner.js";
 import type { MissionRecord, MissionJob, MissionJobType } from "./types.js";
 
@@ -182,6 +184,94 @@ export class MissionControlPlane {
 
     this.wake();
     return nextJob;
+  }
+
+  async continueMission(missionId: string): Promise<MissionJob> {
+    const jobs = await this.jobStore.listJobs(missionId);
+    const waitingJob = jobs
+      .filter((j) => j.status === "waiting_for_input" || j.status === "waiting_for_approval")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.jobId.localeCompare(a.jobId))
+      .at(0);
+
+    if (!waitingJob) {
+      throw new Error(`No waiting job found for mission ${missionId}`);
+    }
+
+    await this.jobStore.markSucceeded(missionId, waitingJob.jobId);
+
+    const { job: nextJob } = await this.jobStore.createJob({
+      missionId,
+      type: "continue_orchestrator",
+      payload: { message: "User continued the mission." },
+      maxAttempts: 3,
+    });
+
+    this.wake();
+    return nextJob;
+  }
+
+  async retryMission(missionId: string): Promise<MissionJob> {
+    const jobs = await this.jobStore.listJobs(missionId);
+    const candidate = jobs
+      .filter((j) => j.status !== "queued" && j.status !== "running")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.jobId.localeCompare(a.jobId))
+      .at(0);
+
+    if (!candidate) {
+      throw new Error(`No retryable job found for mission ${missionId}`);
+    }
+
+    const allowed: import("./types.js").MissionJobStatus[] = ["waiting_for_input", "waiting_for_approval", "failed", "succeeded"];
+    if (!allowed.includes(candidate.status)) {
+      throw new Error(`Job ${candidate.jobId} is ${candidate.status} and cannot be retried`);
+    }
+
+    if (candidate.status === "failed" && candidate.attempt >= candidate.maxAttempts) {
+      throw new Error(`Job ${candidate.jobId} has exhausted all ${candidate.maxAttempts} attempts`);
+    }
+
+    const retried = await this.jobStore.retryJob(missionId, candidate.jobId);
+
+    const { job: nextJob } = await this.jobStore.createJob({
+      missionId,
+      type: "continue_orchestrator",
+      payload: { message: `User retried job ${candidate.jobId}.` },
+      maxAttempts: 3,
+    });
+
+    this.wake();
+    return nextJob;
+  }
+
+  async answerMissionInput(missionId: string, answer: string): Promise<MissionJob> {
+    const pending = await this.readPendingInput(missionId);
+
+    const jobs = await this.jobStore.listJobs(missionId);
+    const waitingJob = jobs.find((j) => j.status === "waiting_for_input");
+
+    if (!waitingJob) {
+      throw new Error(`No job waiting for input found for mission ${missionId}`);
+    }
+
+    await this.jobStore.markSucceeded(missionId, waitingJob.jobId);
+
+    const { job: nextJob } = await this.jobStore.createJob({
+      missionId,
+      type: "continue_orchestrator",
+      payload: {
+        answer,
+        priorQuestion: pending?.question,
+      },
+      maxAttempts: 3,
+    });
+
+    this.wake();
+    return nextJob;
+  }
+
+  private async readPendingInput(missionId: string): Promise<{ question: string; askedAt: string } | undefined> {
+    const scope = createMissionScope(this.options.cwd, missionId);
+    return readPendingUserInput(scope);
   }
 
   private wake(): void {

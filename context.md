@@ -39,8 +39,8 @@ They do **not** mean the standalone core HTTP service when they say "run Ratel f
 ## OpenCode Adapter Details
 
 - npm scope: `@ratel-factory`
-- Core package: `@ratel-factory/core@0.1.1`
-- OpenCode plugin package prepared for publish/test: `@ratel-factory/opencode@0.1.3`
+- Core package: `@ratel-factory/core@0.1.2`
+- OpenCode plugin package prepared for publish/test: `@ratel-factory/opencode@0.1.4`
 - Hosted installer: `http://209.97.168.207/install-opencode.sh`
 
 ### `/ratel` semantics

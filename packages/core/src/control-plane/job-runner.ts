@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createMissionScope, getMissionDir } from "../core/mission/scope.js";
+import { clearPendingUserInput } from "../core/mission/user-input.js";
 import { EventLogger } from "../core/observability/event-logger.js";
 import { ensureMissionInitialized } from "../core/artifacts.js";
 import { OrchestratorAgent } from "../core/orchestrator.js";
@@ -62,6 +63,9 @@ export class JobRunner implements JobExecutor {
           markWaitingForApproval: async () => {
             await this.options.jobStore!.markWaitingForApproval(job.missionId, job.jobId);
           },
+          markWaitingForInput: async () => {
+            await this.options.jobStore!.markWaitingForInput(job.missionId, job.jobId);
+          },
         }
       : undefined;
 
@@ -106,6 +110,13 @@ export class JobRunner implements JobExecutor {
 
         const wallClockSignal = budget.createWallClockAbortSignal(signal);
         const prompt = this.buildPrompt(job);
+
+        // If this continuation is answering a pending user question, clear it
+        // from mission state now that it has been incorporated into the prompt.
+        if (job.type === "continue_orchestrator" && typeof job.payload.answer === "string") {
+          clearPendingUserInput(scope).catch(() => undefined);
+        }
+
         await agent.prompt(prompt, wallClockSignal);
 
         // Success — record circuit success and clean up
@@ -188,8 +199,13 @@ export class JobRunner implements JobExecutor {
     switch (job.type) {
       case "start_mission":
         return String(payload.goal ?? "");
-      case "continue_orchestrator":
-        return String(payload.message ?? "");
+      case "continue_orchestrator": {
+        let prompt = String(payload.message ?? "");
+        if (typeof payload.answer === "string") {
+          prompt = `The user answered: ${payload.answer}${typeof payload.priorQuestion === "string" ? ` to your question: ${payload.priorQuestion}` : ""}\n\n${prompt}`;
+        }
+        return prompt;
+      }
       case "run_worker":
         return `Run worker for feature ${payload.featureId}`;
       case "run_validation":

@@ -21,6 +21,7 @@ export type MissionJobStatus =
   | "queued"
   | "running"
   | "waiting_for_approval"
+  | "waiting_for_input"
   | "succeeded"
   | "failed"
   | "cancelled";

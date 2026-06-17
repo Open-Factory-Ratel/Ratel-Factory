@@ -53,17 +53,12 @@ export async function collectResponse(session: AgentSession, prompt: string): Pr
 
   const durationMs = Date.now() - startTime;
 
-  if (response.length === 0 && durationMs < 1000) {
-    console.warn(
-      `[collectResponse] Agent produced no output in ${durationMs}ms — ` +
-        `possible model resolution failure, missing API credentials, upstream API error, or non-text output. ` +
-        `Empty response will propagate to the calling tool.`,
-    );
-  } else if (response.length === 0) {
-    console.warn(
-      `[collectResponse] Agent produced no output in ${durationMs}ms. ` +
-        `Empty response will propagate to the calling tool.`,
-    );
+  if (response.length === 0) {
+    const reason =
+      durationMs < 1000
+        ? `Agent produced no output in ${durationMs}ms — possible model resolution failure, missing API credentials, upstream API error, or non-text output.`
+        : `Agent produced no output in ${durationMs}ms.`;
+    throw new Error(`[collectResponse] ${reason}`);
   }
 
   return response;

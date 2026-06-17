@@ -22,6 +22,145 @@ import {
   type BridgeResult,
 } from "./auth-bridge.js";
 import { resolveProjectRoot } from "./resolve-project-root.js";
+import type {
+  MissionStatusResponse,
+  MissionPlanResponse,
+  MissionJobsResponse,
+  MissionJob,
+} from "./service.js";
+
+// ---------------------------------------------------------------------------
+// Formatting helpers (return readable strings for OpenCode chat)
+// ---------------------------------------------------------------------------
+
+function formatMissionStatus(status: MissionStatusResponse): string {
+  const lines: string[] = [
+    `Mission: ${status.missionId}`,
+    `Goal: ${status.goal}`,
+    `Status: ${status.status}`,
+    `Phase: ${status.phase}`,
+    `Plan: ${status.planSummary}`,
+  ];
+
+  if (status.pendingQuestion) {
+    lines.push("");
+    lines.push("🟡 Pending question:");
+    lines.push(`  ${status.pendingQuestion.question}`);
+  }
+
+  if (status.features?.length) {
+    lines.push("");
+    lines.push("Features:");
+    for (const f of status.features) {
+      lines.push(`  • [${f.status}] ${f.id}: ${f.title}`);
+    }
+  }
+
+  if (status.milestones?.length) {
+    lines.push("");
+    lines.push("Milestones:");
+    for (const m of status.milestones) {
+      lines.push(`  • [${m.status}] ${m.id}: ${m.title} (${m.featureIds?.length ?? 0} features)`);
+    }
+  }
+
+  if (status.recentJobs?.length) {
+    lines.push("");
+    lines.push("Recent jobs:");
+    for (const j of status.recentJobs) {
+      const errorHint = j.error ? ` — ${j.error.code}: ${j.error.message}` : "";
+      lines.push(`  • ${j.jobId} [${j.type}] → ${j.status}${errorHint}`);
+    }
+  }
+
+  if (status.errors?.length) {
+    lines.push("");
+    lines.push("Errors:");
+    for (const e of status.errors) {
+      lines.push(`  • ${e.jobId} [${e.type}] ${e.error?.message ?? e.status}`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`Model health: ${status.modelHealth?.healthy ? "✅ healthy" : "⚠️ degraded"}`);
+
+  return lines.join("\n");
+}
+
+function formatMissionPlan(plan: MissionPlanResponse): string {
+  const lines: string[] = [
+    `Mission: ${plan.missionId}`,
+    `Goal: ${plan.goal}`,
+  ];
+
+  if (plan.features?.length) {
+    lines.push("");
+    lines.push("Features:");
+    for (const f of plan.features) {
+      lines.push(`  • [${f.status}] ${f.id}: ${f.title}`);
+    }
+  }
+
+  if (plan.milestones?.length) {
+    lines.push("");
+    lines.push("Milestones:");
+    for (const m of plan.milestones) {
+      lines.push(`  • [${m.status}] ${m.id}: ${m.title}`);
+    }
+  }
+
+  if (plan.validationContract) {
+    lines.push("");
+    lines.push("Validation contract:");
+    lines.push(plan.validationContract);
+  }
+
+  if (plan.artifacts?.length) {
+    lines.push("");
+    lines.push("Artifacts:");
+    for (const a of plan.artifacts) {
+      lines.push(`  • ${a}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function formatMissionJobs(jobs: MissionJobsResponse): string {
+  const lines = [`Mission: ${jobs.missionId}`, `Jobs: ${jobs.jobs?.length ?? 0}`];
+  for (const j of jobs.jobs ?? []) {
+    lines.push(`  • ${j.jobId} [${j.type}] → ${j.status}`);
+  }
+  return lines.join("\n");
+}
+
+function formatJob(job: MissionJob): string {
+  const lines = [
+    `Job: ${job.jobId}`,
+    `Mission: ${job.missionId}`,
+    `Type: ${job.type}`,
+    `Status: ${job.status}`,
+    `Attempt: ${job.attempt}/${job.maxAttempts}`,
+    `Created: ${job.createdAt}`,
+    `Updated: ${job.updatedAt}`,
+  ];
+  if (job.startedAt) lines.push(`Started: ${job.startedAt}`);
+  if (job.finishedAt) lines.push(`Finished: ${job.finishedAt}`);
+  if (job.leaseOwner) lines.push(`Lease owner: ${job.leaseOwner}`);
+  if (job.error) {
+    lines.push("");
+    lines.push("Error:");
+    lines.push(`  Code: ${job.error.code}`);
+    lines.push(`  Message: ${job.error.message}`);
+    lines.push(`  Retryable: ${job.error.retryable ? "yes" : "no"}`);
+  }
+  if (job.payload && Object.keys(job.payload).length) {
+    lines.push("");
+    lines.push("Payload:");
+    lines.push(JSON.stringify(job.payload, null, 2));
+  }
+  return lines.join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Debug logging
@@ -345,7 +484,7 @@ const RatelPlugin: Plugin = async (ctx: any) => {
         },
       },
       ratel_get_status: {
-        description: "Get the current mission status.",
+        description: "Get the rich status of a mission (phase, features, milestones, pending question, recent jobs, model health, errors).",
         args: {
           missionId: {
             type: "string",
@@ -354,13 +493,174 @@ const RatelPlugin: Plugin = async (ctx: any) => {
         },
         async execute(args: any) {
           if (!service) return SERVICE_UNAVAILABLE_MSG;
+          const missionId = args.missionId ?? "";
           try {
-            const result = await service.getMissionStatus(args.missionId ?? "");
-            return JSON.stringify(result, null, 2);
+            const result = await service.getMissionStatus(missionId);
+            return formatMissionStatus(result);
           } catch (err) {
             const msg = err instanceof RatelServiceError
               ? err.message
               : `Failed to get mission status: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_get_plan: {
+        description: "Get the mission plan (goal, features, milestones, validation contract, artifacts).",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID to query",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          const missionId = args.missionId ?? "";
+          try {
+            const result = await service.getPlan(missionId);
+            return formatMissionPlan(result);
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to get mission plan: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_list_jobs: {
+        description: "List all jobs for a mission.",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID to query",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          const missionId = args.missionId ?? "";
+          try {
+            const result = await service.listJobs(missionId);
+            return formatMissionJobs(result);
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to list jobs: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_get_job_result: {
+        description: "Get the status, payload, result, or error for a specific job.",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID",
+          },
+          jobId: {
+            type: "string",
+            description: "Job ID to query",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          const missionId = args.missionId ?? "";
+          const jobId = args.jobId ?? "";
+          try {
+            const result = await service.getJob(missionId, jobId);
+            return formatJob(result);
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to get job: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_answer_question: {
+        description: "Answer a pending intake/approval question for a mission.",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID",
+          },
+          answer: {
+            type: "string",
+            description: "The answer text to send to the orchestrator",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          // Bridge OpenCode credentials before queuing orchestrator work
+          await ensureAuthBridge();
+          const missionId = args.missionId ?? "";
+          const answer = args.answer ?? "";
+          try {
+            const result = await service.answerMissionInput(missionId, answer);
+            cachedMissionId = result.missionId;
+            cachedJobId = result.jobId;
+            return `Answer queued for mission ${result.missionId} (job ${result.jobId})`;
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to answer mission input: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_continue_mission: {
+        description: "Continue a mission that is waiting for approval or stalled.",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          // Bridge OpenCode credentials before spawning orchestrator work
+          await ensureAuthBridge();
+          const missionId = args.missionId ?? "";
+          try {
+            const result = await service.continueMission(missionId);
+            cachedMissionId = result.missionId;
+            cachedJobId = result.jobId;
+            return `Continue queued for mission ${result.missionId} (job ${result.jobId})`;
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to continue mission: ${err instanceof Error ? err.message : String(err)}`;
+            console.error("[Ratel]", msg);
+            return msg;
+          }
+        },
+      },
+      ratel_retry_phase: {
+        description: "Retry the current mission phase after an error or failure.",
+        args: {
+          missionId: {
+            type: "string",
+            description: "Mission ID",
+          },
+        },
+        async execute(args: any) {
+          if (!service) return SERVICE_UNAVAILABLE_MSG;
+          // Bridge OpenCode credentials before spawning orchestrator work
+          await ensureAuthBridge();
+          const missionId = args.missionId ?? "";
+          try {
+            const result = await service.retryMission(missionId);
+            cachedMissionId = result.missionId;
+            cachedJobId = result.jobId;
+            return `Retry queued for mission ${result.missionId} (job ${result.jobId})`;
+          } catch (err) {
+            const msg = err instanceof RatelServiceError
+              ? err.message
+              : `Failed to retry mission: ${err instanceof Error ? err.message : String(err)}`;
             console.error("[Ratel]", msg);
             return msg;
           }

@@ -40,12 +40,22 @@ async function collectResponse(session: AgentSession, prompt: string): Promise<s
     }
   });
 
+  const startTime = Date.now();
   try {
     // AgentSession.prompt() waits for the full run to finish. Subscribe BEFORE
     // calling it or we miss every text_delta and falsely produce an empty handoff.
     await session.prompt(prompt);
   } finally {
     unsubscribe();
+  }
+
+  const durationMs = Date.now() - startTime;
+  if (response.length === 0) {
+    const reason =
+      durationMs < 1000
+        ? `Worker produced no output in ${durationMs}ms — possible model resolution failure, missing API credentials, upstream API error, or non-text output.`
+        : `Worker produced no output in ${durationMs}ms.`;
+    throw new Error(`[collectResponse] ${reason}`);
   }
 
   return response;

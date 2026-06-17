@@ -435,7 +435,7 @@ When the factory starts, it launches a read-only observatory dashboard:
 
 ### OpenCode Plugin (`@ratel-factory/opencode`)
 
-Current prepared package version: `@ratel-factory/opencode@0.1.3` with `@ratel-factory/core@0.1.1`.
+Current prepared package version: `@ratel-factory/opencode@0.1.4` with `@ratel-factory/core@0.1.2`.
 
 **Commands:**
 - `/ratel` — Ping factory health and all six factory agents. This is health/status only: it does **not** start a mission, inspect the codebase, or modify project state.

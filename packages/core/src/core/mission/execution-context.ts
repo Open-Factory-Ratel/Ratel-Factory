@@ -15,5 +15,6 @@ export interface MissionExecutionContext {
   jobId?: string;
   jobControl?: {
     markWaitingForApproval(): Promise<void>;
+    markWaitingForInput(): Promise<void>;
   };
 }

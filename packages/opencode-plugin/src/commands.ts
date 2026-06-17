@@ -120,22 +120,61 @@ export async function handleCommand(ctx: CommandContext): Promise<void> {
       }
       case "ratel-mission": {
         console.log("[Ratel] /ratel-mission command received — showing mission status");
-        if (!cachedMissionId) {
-          await log("info", "[Ratel] No active mission. Start one with the ratel_start_mission tool.");
+        const missionId = ctx.rawArgs?.trim() || cachedMissionId;
+        if (!missionId) {
+          await log("info", "[Ratel] No active mission cached. Pass a missionId or start one with the ratel_start_mission tool.");
           return;
         }
-        const [mission, job] = await Promise.all([
-          service.getMissionStatus(cachedMissionId).catch((e: Error) => ({ missionId: cachedMissionId, state: { error: e.message } })),
-          cachedJobId ? service.getJobStatus(cachedMissionId, cachedJobId).catch((e: Error) => ({ jobId: cachedJobId, status: `error: ${e.message}` })) : undefined,
-        ]);
-        const lines = [
-          `Mission: ${mission.missionId}`,
-          `State: ${JSON.stringify(mission.state, null, 2)}`,
-        ];
-        if (job) {
-          lines.push(`Job: ${(job as any).jobId ?? cachedJobId} — status: ${(job as any).status ?? "unknown"}`);
+        try {
+          const status = await service.getMissionStatus(missionId);
+          const lines: string[] = [
+            `Mission: ${status.missionId}`,
+            `Goal: ${status.goal}`,
+            `Status: ${status.status}`,
+            `Phase: ${status.phase}`,
+            `Plan: ${status.planSummary}`,
+          ];
+          if (status.pendingQuestion) {
+            lines.push("");
+            lines.push("🟡 Pending question:");
+            lines.push(`  ${status.pendingQuestion.question}`);
+            lines.push("Use `ratel_answer_question` to reply.");
+          }
+          if (status.features?.length) {
+            lines.push("");
+            lines.push("Features:");
+            for (const f of status.features) {
+              lines.push(`  • [${f.status}] ${f.id}: ${f.title}`);
+            }
+          }
+          if (status.milestones?.length) {
+            lines.push("");
+            lines.push("Milestones:");
+            for (const m of status.milestones) {
+              lines.push(`  • [${m.status}] ${m.id}: ${m.title}`);
+            }
+          }
+          if (status.recentJobs?.length) {
+            lines.push("");
+            lines.push("Recent jobs:");
+            for (const j of status.recentJobs) {
+              lines.push(`  • ${j.jobId} [${j.type}] → ${j.status}`);
+            }
+          }
+          if (status.errors?.length) {
+            lines.push("");
+            lines.push("Errors:");
+            for (const e of status.errors) {
+              lines.push(`  • ${e.jobId} [${e.type}] ${e.error?.message ?? e.status}`);
+            }
+            lines.push("Use `ratel_retry_phase` to retry.");
+          }
+          lines.push("");
+          lines.push(`Model health: ${status.modelHealth?.healthy ? "✅ healthy" : "⚠️ degraded"}`);
+          await log("info", `[Ratel] ${lines.join("\n")}`);
+        } catch (err) {
+          await log("warning", healthFailureMessage(err));
         }
-        await log("info", `[Ratel] ${lines.join("\n")}`);
         break;
       }
       case "ratel-observatory": {

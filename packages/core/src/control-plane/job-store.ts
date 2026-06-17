@@ -233,6 +233,13 @@ export class JobStore {
     }));
   }
 
+  async markWaitingForInput(missionId: string, jobId: string): Promise<MissionJob> {
+    return this.transition(missionId, jobId, "running", "waiting_for_input", (job) => ({
+      ...job,
+      finishedAt: nowIso(),
+    }));
+  }
+
   async markSucceeded(missionId: string, jobId: string): Promise<MissionJob> {
     const path = this.getJobPath(missionId, jobId);
     return withFileLock(path, async () => {
@@ -240,7 +247,7 @@ export class JobStore {
       if (!current) {
         throw new Error(`Job ${jobId} not found`);
       }
-      const allowedFrom: MissionJobStatus[] = ["running", "waiting_for_approval"];
+      const allowedFrom: MissionJobStatus[] = ["running", "waiting_for_approval", "waiting_for_input"];
       if (!allowedFrom.includes(current.status)) {
         throw new JobTransitionError(
           jobId,
@@ -341,7 +348,7 @@ export class JobStore {
       if (current.status === "cancelled") {
         return current;
       }
-      const allowedFrom: MissionJobStatus[] = ["queued", "running", "waiting_for_approval", "succeeded", "failed"];
+      const allowedFrom: MissionJobStatus[] = ["queued", "running", "waiting_for_approval", "waiting_for_input", "succeeded", "failed"];
       if (!allowedFrom.includes(current.status)) {
         throw new JobTransitionError(
           jobId,
@@ -354,6 +361,48 @@ export class JobStore {
         ...current,
         status: "cancelled",
         finishedAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      await atomicWriteJson(path, updated);
+      return updated;
+    });
+  }
+
+  /**
+   * Requeue a job for explicit retry from a terminal or waiting status.
+   * Allowed source statuses: waiting_for_input, waiting_for_approval, failed, succeeded.
+   * For failed jobs, requires that attempts remain (attempt < maxAttempts).
+   * Clears any error/lease and returns the queued job.
+   */
+  async retryJob(missionId: string, jobId: string): Promise<MissionJob> {
+    const path = this.getJobPath(missionId, jobId);
+    return withFileLock(path, async () => {
+      const current = await readJsonFile<MissionJob>(path);
+      if (!current) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+
+      const allowedFrom: MissionJobStatus[] = ["waiting_for_input", "waiting_for_approval", "failed", "succeeded"];
+      if (!allowedFrom.includes(current.status)) {
+        throw new JobTransitionError(
+          jobId,
+          current.status,
+          "queued",
+          `Can only retry from ${allowedFrom.join(", ")}`
+        );
+      }
+
+      if (current.status === "failed" && current.attempt >= current.maxAttempts) {
+        // Cannot retry — max attempts already exhausted
+        return current;
+      }
+
+      const updated: MissionJob = {
+        ...current,
+        status: "queued",
+        leaseOwner: undefined,
+        leaseExpiresAt: undefined,
+        error: undefined,
         updatedAt: nowIso(),
       };
       await atomicWriteJson(path, updated);

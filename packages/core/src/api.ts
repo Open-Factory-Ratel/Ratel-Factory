@@ -23,8 +23,10 @@ import { getCurrentDashboardUrl } from "./observatory/server.js";
 import { createMissionScope } from "./core/mission/scope.js";
 import { getMissionDir } from "./core/mission/scope.js";
 import { EventLogger } from "./core/observability/event-logger.js";
-import { ensureMissionInitialized } from "./core/artifacts.js";
+import { ensureMissionInitialized, loadMissionState, readArtifact } from "./core/artifacts.js";
 import { readJsonFile } from "./core/mission/atomic-file.js";
+import { readPendingUserInput } from "./core/mission/user-input.js";
+import type { MissionStatus, MissionJobType, MissionJobStatus } from "./control-plane/types.js";
 
 export interface ApiOptions {
   cwd: string;
@@ -38,6 +40,65 @@ export interface ApiServer {
   port: number;
   url: string;
   shutdown: () => Promise<void>;
+}
+
+export interface MissionStatusFeature {
+  id: string;
+  title: string;
+  status: string;
+}
+
+export interface MissionStatusMilestone {
+  id: string;
+  title: string;
+  status: string;
+  featureIds: string[];
+}
+
+export interface MissionStatusRecentJob {
+  jobId: string;
+  type: MissionJobType;
+  status: MissionJobStatus;
+  result?: "succeeded" | "failed" | "cancelled";
+  error?: { code: string; message: string; retryable: boolean };
+}
+
+export interface MissionStatusResponse {
+  missionId: string;
+  goal: string;
+  status: MissionStatus;
+  phase: string;
+  features: MissionStatusFeature[];
+  milestones: MissionStatusMilestone[];
+  planSummary: string;
+  recentJobs: MissionStatusRecentJob[];
+  pendingQuestion?: { question: string; askedAt: string };
+  modelHealth: { healthy: boolean; models: unknown[] };
+  errors: MissionStatusRecentJob[];
+}
+
+export interface MissionPlanResponse {
+  missionId: string;
+  goal: string;
+  features: MissionStatusFeature[];
+  milestones: MissionStatusMilestone[];
+  validationContract?: string;
+  artifacts: string[];
+}
+
+export interface MissionContinueResponse {
+  missionId: string;
+  jobId: string;
+}
+
+export interface MissionRetryResponse {
+  missionId: string;
+  jobId: string;
+}
+
+export interface MissionAnswerResponse {
+  missionId: string;
+  jobId: string;
 }
 
 function parseBody(req: IncomingMessage): Promise<unknown> {
@@ -176,6 +237,189 @@ export async function createApiServer(options: ApiOptions): Promise<ApiServer> {
           return;
         }
         sendJson(res, 200, mission);
+        return;
+      }
+
+      // GET /api/v1/missions/:missionId/status
+      const statusMatch = url.pathname.match(/^\/api\/v1\/missions\/([^\/]+)\/status$/);
+      if (statusMatch && method === "GET") {
+        const missionId = statusMatch[1];
+        const mission = await controlPlane.getMission(missionId);
+        if (!mission) {
+          sendError(res, 404, "Mission not found");
+          return;
+        }
+
+        const scope = createMissionScope(cwd, missionId);
+        const state = await loadMissionState(scope);
+        const jobStore = new JobStore(new MissionStore(cwd));
+        const jobs = await jobStore.listJobs(missionId);
+        const recentJobs = jobs
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.jobId.localeCompare(a.jobId))
+          .slice(0, 10)
+          .map((j): MissionStatusRecentJob => ({
+            jobId: j.jobId,
+            type: j.type,
+            status: j.status,
+            result: j.status === "succeeded" ? "succeeded" : j.status === "failed" ? "failed" : j.status === "cancelled" ? "cancelled" : undefined,
+            error: j.error,
+          }));
+
+        const pendingInput = await readPendingUserInput(scope);
+        const modelHealthRaw = await readJsonFile<{ models: unknown[] }>(join(cwd, ".ratel", "model-health.json"));
+        const models = modelHealthRaw?.models ?? [];
+        const healthy = models.every((m: any) => m.state !== "open");
+
+        const features: MissionStatusFeature[] = state.features?.map((f) => ({
+          id: f.id,
+          title: f.title,
+          status: f.status,
+        })) ?? [];
+
+        const milestones: MissionStatusMilestone[] = state.milestones?.map((m) => ({
+          id: m.id,
+          title: m.title,
+          status: m.status,
+          featureIds: m.featureIds,
+        })) ?? [];
+
+        const featureCount = features.length;
+        const milestoneCount = milestones.length;
+        const planSummary = `${featureCount} feature${featureCount === 1 ? "" : "s"}, ${milestoneCount} milestone${milestoneCount === 1 ? "" : "s"} defined`;
+
+        const errors = recentJobs.filter((j) => j.status === "failed" || j.error);
+
+        const response: MissionStatusResponse = {
+          missionId,
+          goal: mission.goal,
+          status: mission.status,
+          phase: state.phase ?? mission.status,
+          features,
+          milestones,
+          planSummary,
+          recentJobs,
+          pendingQuestion: pendingInput ? { question: pendingInput.question, askedAt: pendingInput.askedAt } : undefined,
+          modelHealth: { healthy, models },
+          errors,
+        };
+
+        sendJson(res, 200, response);
+        return;
+      }
+
+      // GET /api/v1/missions/:missionId/plan
+      const planMatch = url.pathname.match(/^\/api\/v1\/missions\/([^\/]+)\/plan$/);
+      if (planMatch && method === "GET") {
+        const missionId = planMatch[1];
+        const mission = await controlPlane.getMission(missionId);
+        if (!mission) {
+          sendError(res, 404, "Mission not found");
+          return;
+        }
+
+        const scope = createMissionScope(cwd, missionId);
+        const state = await loadMissionState(scope);
+
+        const features: MissionStatusFeature[] = state.features?.map((f) => ({
+          id: f.id,
+          title: f.title,
+          status: f.status,
+        })) ?? [];
+
+        const milestones: MissionStatusMilestone[] = state.milestones?.map((m) => ({
+          id: m.id,
+          title: m.title,
+          status: m.status,
+          featureIds: m.featureIds,
+        })) ?? [];
+
+        const validationContract = await readArtifact(scope, "validation-contract.md");
+
+        const artifacts: string[] = [];
+        try {
+          const entries = await readdir(getMissionDir(scope), { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isFile()) artifacts.push(entry.name);
+          }
+        } catch {
+          // Directory may not exist yet
+        }
+
+        const response: MissionPlanResponse = {
+          missionId,
+          goal: mission.goal,
+          features,
+          milestones,
+          validationContract,
+          artifacts,
+        };
+
+        sendJson(res, 200, response);
+        return;
+      }
+
+      // POST /api/v1/missions/:missionId/continue
+      const continueMatch = url.pathname.match(/^\/api\/v1\/missions\/([^\/]+)\/continue$/);
+      if (continueMatch && method === "POST") {
+        const missionId = continueMatch[1];
+        const mission = await controlPlane.getMission(missionId);
+        if (!mission) {
+          sendError(res, 404, "Mission not found");
+          return;
+        }
+        try {
+          const job = await controlPlane.continueMission(missionId);
+          sendJson(res, 202, { missionId, jobId: job.jobId } satisfies MissionContinueResponse);
+        } catch (err) {
+          sendError(res, 400, err instanceof Error ? err.message : "Cannot continue mission");
+        }
+        return;
+      }
+
+      // POST /api/v1/missions/:missionId/retry
+      const retryMatch = url.pathname.match(/^\/api\/v1\/missions\/([^\/]+)\/retry$/);
+      if (retryMatch && method === "POST") {
+        const missionId = retryMatch[1];
+        const mission = await controlPlane.getMission(missionId);
+        if (!mission) {
+          sendError(res, 404, "Mission not found");
+          return;
+        }
+        try {
+          const job = await controlPlane.retryMission(missionId);
+          sendJson(res, 202, { missionId, jobId: job.jobId } satisfies MissionRetryResponse);
+        } catch (err) {
+          sendError(res, 400, err instanceof Error ? err.message : "Cannot retry mission");
+        }
+        return;
+      }
+
+      // POST /api/v1/missions/:missionId/answer
+      const answerMatch = url.pathname.match(/^\/api\/v1\/missions\/([^\/]+)\/answer$/);
+      if (answerMatch && method === "POST") {
+        const missionId = answerMatch[1];
+        let body: { answer?: string };
+        try {
+          body = await parseBody(req) as { answer?: string };
+        } catch {
+          sendError(res, 400, "Invalid JSON body");
+          return;
+        }
+        if (!body.answer || typeof body.answer !== "string") {
+          sendError(res, 400, "Missing or invalid 'answer' field");
+          return;
+        }
+        const mission = await controlPlane.getMission(missionId);
+        if (!mission) {
+          sendError(res, 404, "Mission not found");
+          return;
+        }
+        try {
+          const job = await controlPlane.answerMissionInput(missionId, body.answer);
+          sendJson(res, 202, { missionId, jobId: job.jobId } satisfies MissionAnswerResponse);
+        } catch (err) {
+          sendError(res, 400, err instanceof Error ? err.message : "Cannot answer mission input");
+        }
         return;
       }
 

@@ -1,79 +1,65 @@
 ---
 name: ratel-factory
-description: Operate the Ratel AI Software Factory from a host coding agent such as OpenCode or Pi. Use when the user asks to run Ratel, start a factory mission, delegate a long-running end-to-end software build, monitor a Ratel mission, open the Observatory, or continue/cancel factory work. Conduct host-agent intake, establish confirmed shared understanding, submit a structured MissionBrief, and leave implementation scheduling to Ratel.
+description: Operate the Ratel AI Software Factory from a host coding agent such as OpenCode or Pi. Use when the user asks to run Ratel, start a factory mission, delegate a long-running end-to-end software build, monitor a Ratel mission, open the Observatory, or continue/cancel factory work.
 ---
 
 # Ratel Factory
 
-You are the Ratel Orchestrator inside OpenCode. You manage mission lifecycles, worker execution, and validation through the Ratel service.
+You are the OpenCode adapter for the Ratel AI Software Factory. All durable state lives in the Ratel service. Do not create git worktrees, feature branches, or mission artifacts manually.
 
-## Role
+## When to use
 
-As the Orchestrator, you talk to the user, reason about scope, coordinate workers, and decide phase transitions. All durable state lives in the Ratel service — you never manually create git worktrees, feature branches, or mission artifacts. Every mission operation goes through the Ratel service API.
+- The user asks you to "build", "implement", "create", "add", or "delegate" something using Ratel.
+- The user asks about mission status, progress, plans, jobs, errors, or the Observatory.
 
-## Available Tools
+## Unified adapter flow
 
-These tools communicate with the Ratel service over HTTP. Always cache the returned `missionId` and `jobId` so you can poll status and dispatch follow-up work.
+1. **Start the mission**
+   - Call `ratel_start_mission` with the user's exact request as the `goal`.
+   - Do not ask intake questions yourself. Ratel will handle discovery.
+   - Cache the returned `missionId` and `jobId`.
 
-### `ratel_start_mission`
-Start a new factory mission from a confirmed goal.
-- **When**: After the user confirms the mission brief and scope.
-- **Input**: `goal` (string) — a concise mission statement.
-- **Returns**: `missionId` and `jobId`. Cache both.
+2. **Poll status**
+   - Call `ratel_get_status` with the cached `missionId`.
+   - Summarize the result concisely for the user.
 
-### `ratel_get_status`
-Poll the current status of a mission.
-- **When**: After starting a mission, after dispatching workers/validation, or when the user asks for progress.
-- **Input**: `missionId` (string).
-- **Returns**: Current mission state including phase, job list, and completion status.
+3. **Handle pending questions**
+   - If `ratel_get_status` returns `pendingQuestion`, copy the exact question into the OpenCode chat and ask the user.
+   - After the user replies, call `ratel_answer_question` with the `missionId` and the user's answer.
+   - Return to step 2.
 
-### `ratel_run_worker`
-Dispatch a worker to implement a specific feature.
-- **When**: The plan lists features that are ready for implementation.
-- **Input**: `missionId` (string) and `featureId` (string).
-- **Returns**: `jobId` for the queued worker. Poll `ratel_get_status` to track progress.
+4. **Handle approval gate**
+   - If the status is `waiting_for_approval`, tell the user to approve or reject in the Observatory dashboard, or call `ratel_continue_mission` to proceed.
 
-### `ratel_run_validation`
-Run validation for a specific milestone.
-- **When**: All features for a milestone are complete.
-- **Input**: `missionId` (string) and `milestoneId` (string).
-- **Returns**: `jobId` for the queued validation. Poll `ratel_get_status` to see results.
+5. **Handle errors or stalls**
+   - If the status shows errors or a stuck phase, call `ratel_retry_phase` to retry.
 
-## Commands
+6. **Inspect plan and jobs**
+   - Use `ratel_get_plan` to show the user the planned features, milestones, validation contract, and artifacts.
+   - Use `ratel_list_jobs` to show what jobs have run and their statuses.
+   - Use `ratel_get_job_result` for details on a specific job.
 
-- **`/ratel`** — Toggle factory mode or show service health.
-- **`/ratel-mission`** — Show the current mission status.
-- **`/ratel-observatory`** — Open the Ratel Observatory dashboard for real-time visibility.
+## Tools
 
-## Pipeline
+- `ratel_start_mission` — Start a mission. Requires auth bridge (runs automatically).
+- `ratel_get_status` — Rich read-only status.
+- `ratel_get_plan` — Read-only plan and artifacts.
+- `ratel_list_jobs` — Read-only job list.
+- `ratel_get_job_result` — Read-only job details.
+- `ratel_answer_question` — Answer a pending question. Requires auth bridge.
+- `ratel_continue_mission` — Continue past approval/stall. Requires auth bridge.
+- `ratel_retry_phase` — Retry a failed/stalled phase. Requires auth bridge.
 
-Follow this flow for every mission:
+## State rule
 
-1. **Intake** — Interview the user until you have a shared understanding of the goal, scope, and constraints. Do not skip this step.
-2. **Start Mission** — Call `ratel_start_mission` with the confirmed goal. Cache the returned `missionId`.
-3. **Poll Status** — Use `ratel_get_status` to track discovery, planning, and approval phases. The service handles these automatically.
-4. **Run Workers per Feature** — Once features are ready, call `ratel_run_worker` for each feature. Poll status between dispatches.
-5. **Run Validation per Milestone** — After all features in a milestone complete, call `ratel_run_validation` for that milestone.
-6. **Observatory** — Use `/ratel-observatory` to give the user the Observatory URL for real-time visibility into agent activity, events, and validation evidence.
-
-## State Rule
-
-**All durable state lives in the Ratel service.** Do NOT:
-- Create git worktrees or feature branches manually.
-- Write or edit `.ratel/` mission artifacts directly.
-- Start workers or validators outside the service.
-- Implement the same mission in parallel after delegating.
-
-Mission artifacts are stored under `.ratel/missions/<missionId>/` and are managed exclusively by the Ratel service.
+Never edit files under `.ratel/missions/<missionId>/` directly. Always go through the Ratel service tools.
 
 ## Fallback
 
-If the Ratel service is unreachable (connection refused or health check fails), tell the user:
+If the Ratel service is unreachable, tell the user:
 
 > The Ratel service is not running. Start it with:
 > ```
 > ratel --serve --port 8765
 > ```
 > Then retry your request.
-
-Do not attempt to replicate the service logic locally.

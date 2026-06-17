@@ -180,6 +180,7 @@ export class OrchestratorAgent {
       "ensure_skills_installed",
       "get_feature_complexity",
       "wait_for_user_approval",
+      "wait_for_user_input",
     ];
 
     // Resolve orchestrator model from config, CLI option, or SDK default

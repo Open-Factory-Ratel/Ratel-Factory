@@ -68,6 +68,7 @@ import {
   wouldIntroduceIntegratedTransition,
 } from "./mission/feature-completion.js";
 import { createReportReceiver, persistSubmittedReport, persistWorkerReceipt } from "./report-submission.js";
+import { writePendingUserInput } from "./mission/user-input.js";
 import { runUserTestingCoordinator } from "./mission/user-testing-coordinator.js";
 import { getCurrentDashboardUrl } from "../observatory/server.js";
 import { evaluateMilestoneValidation, applyMilestoneValidation, markMissionCompleted } from "./mission/validation-finalization.js";
@@ -1770,6 +1771,61 @@ export function markMissionCompletedTool(context: MissionExecutionContext) {
   });
 }
 
+/**
+ * Durable wait for user textual input.
+ * Writes pending-input.json, marks the current job waiting_for_input, and
+ * instructs the orchestrator to end its turn. After the user answers via
+ * the API, a continue_orchestrator job with the answer will be queued.
+ */
+export function waitForUserInputTool(context: MissionExecutionContext) {
+  return defineTool({
+    name: "wait_for_user_input",
+    label: "Wait for User Input",
+    description:
+      "Pauses the current orchestrator turn and waits for the user to answer a question via the API or dashboard. " +
+      "Writes pending-input.json and transitions the current job to waiting_for_input. " +
+      "The orchestrator MUST end its turn after calling this tool. " +
+      "After the user submits an answer, a continue_orchestrator job will be queued automatically.",
+    parameters: Type.Object({
+      question: Type.String({ description: "The question to ask the user" }),
+    }),
+    execute: async (_toolCallId, params): Promise<{
+      content: { type: "text"; text: string }[];
+      details: { waiting: true; status: string };
+    }> => {
+      context.logger.toolCall("wait_for_user_input", { question: params.question });
+
+      // 1. Persist pending question
+      await writePendingUserInput(context.scope, {
+        question: params.question,
+        askedAt: new Date().toISOString(),
+        jobId: context.jobId,
+      });
+
+      // 2. Mark job waiting for input via jobControl
+      if (context.jobControl) {
+        await context.jobControl.markWaitingForInput();
+      }
+
+      context.logger.toolResult("wait_for_user_input", { status: "waiting_for_input" });
+
+      // 3. Return instruction to end turn
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Waiting for user input. The orchestrator MUST end this turn now. After the user answers via the API, a continue_orchestrator job will be queued automatically.",
+          },
+        ],
+        details: {
+          waiting: true,
+          status: "waiting_for_input",
+        },
+      };
+    },
+  });
+}
+
 /** Create orchestrator custom tools from a mission execution context. */
 export function createOrchestratorTools(context: MissionExecutionContext) {
   return [
@@ -1792,6 +1848,7 @@ export function createOrchestratorTools(context: MissionExecutionContext) {
     ensureSkillsInstalledTool(context),
     getFeatureComplexityTool(context),
     waitForUserApprovalTool(context),
+    waitForUserInputTool(context),
   ];
 }
 
