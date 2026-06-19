@@ -34,11 +34,17 @@ export function getDb(): Db {
       createdAt INTEGER NOT NULL
     );
 
-    CREATE VIRTUAL TABLE IF NOT EXISTS content_fts USING fts5(
+    -- Rebuild the FTS index on startup so the tokenizer configuration stays
+    -- in sync with the application code. This is acceptable for the MVP data
+    -- volume and avoids fragile schema-version checks.
+    DROP TABLE IF EXISTS content_fts;
+
+    CREATE VIRTUAL TABLE content_fts USING fts5(
       title,
       body,
       content='content',
-      content_rowid='id'
+      content_rowid='id',
+      tokenize='porter unicode61'
     );
 
     CREATE TRIGGER IF NOT EXISTS content_ai AFTER INSERT ON content BEGIN
@@ -55,6 +61,8 @@ export function getDb(): Db {
       VALUES ('delete', old.id, old.title, old.body);
       INSERT INTO content_fts(rowid, title, body) VALUES (new.id, new.title, new.body);
     END;
+
+    INSERT INTO content_fts(rowid, title, body) SELECT id, title, body FROM content;
   `);
 
   return db;
@@ -87,7 +95,7 @@ export function getAllContent(): Content[] {
 
 export function searchByKeyword(query: string): Content[] {
   const trimmed = query.trim();
-  if (!trimmed) return getAllContent();
+  if (!trimmed) return [];
 
   const stmt = getDb().prepare<[string], Content>(`
     SELECT c.* FROM content c

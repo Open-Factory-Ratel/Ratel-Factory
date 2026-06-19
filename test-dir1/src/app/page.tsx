@@ -13,7 +13,9 @@ type PageProps = {
 
 export default async function HomePage({ searchParams }: PageProps) {
   const query = searchParams?.q ?? '';
-  const results = query.trim() ? searchContent(query.trim()) : getAllContent();
+  const trimmedQuery = query.trim();
+  const isSearch = trimmedQuery.length > 0;
+  const results = isSearch ? searchContent(trimmedQuery) : getAllContent();
 
   return (
     <main>
@@ -40,10 +42,25 @@ export default async function HomePage({ searchParams }: PageProps) {
       </section>
 
       <section aria-labelledby="results-heading">
-        <h2 id="results-heading">{query ? 'Search results' : 'Stored content'}</h2>
-        {results.length === 0 ? (
+        <h2 id="results-heading">
+          {isSearch ? 'Keyword search results' : 'Stored content'}
+        </h2>
+
+        {!isSearch && (
+          <p className="search-prompt">
+            Enter a keyword above to search, or browse the stored content below.
+          </p>
+        )}
+
+        {isSearch && results.length === 0 && (
+          <p className="empty">No matching content was found.</p>
+        )}
+
+        {!isSearch && results.length === 0 && (
           <p className="empty">No content yet.</p>
-        ) : (
+        )}
+
+        {results.length > 0 && (
           <ul>
             {results.map((item) => (
               <li key={item.id}>
