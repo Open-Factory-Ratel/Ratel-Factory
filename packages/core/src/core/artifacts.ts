@@ -431,7 +431,8 @@ export async function loadMissionState(scope: import("./mission/scope.js").Missi
   const milestones = await readMilestones(scope);
   const decisions = (await readDecisionLog(scope)) ?? [];
 
-  return {
+  const base: MissionState = {
+    missionId: scope.missionId,
     phase: stateFile?.phase ?? "intake",
     version: stateFile?.version ?? 1,
     updatedAt: stateFile?.updatedAt ?? new Date().toISOString(),
@@ -443,6 +444,7 @@ export async function loadMissionState(scope: import("./mission/scope.js").Missi
     milestones,
     decisions,
   };
+  return base;
 }
 
 /**
@@ -451,6 +453,7 @@ export async function loadMissionState(scope: import("./mission/scope.js").Missi
 export function summarizeMissionState(state: MissionState): string {
   const lines: string[] = [
     `## Current Mission State`,
+    `Mission ID: ${state.missionId}`,
     `Phase: ${state.phase}`,
     `Updated: ${state.updatedAt}`,
   ];
